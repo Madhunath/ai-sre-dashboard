@@ -1,0 +1,2796 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Command Center | AI SRE Console</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
+  <style>
+    body.light-theme {
+      --bg: #f4f6fa;
+      --panel: rgba(255, 255, 255, 0.95);
+      --panel-solid: #ffffff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --line: rgba(148, 163, 184, 0.2);
+      --accent: #0d9488;
+      --accent-strong: #0f766e;
+      --danger: #e11d48;
+      --warn: #d97706;
+      color-scheme: light;
+
+      --success: #059669;
+      --success-bg: rgba(5, 150, 105, 0.1);
+      --card-bg: rgba(148, 163, 184, 0.08);
+      --card-bg-hover: rgba(148, 163, 184, 0.16);
+      --card-bg-active: rgba(13, 148, 136, 0.08);
+      --grid-card-bg: rgba(148, 163, 184, 0.06);
+      --code-bg: #f1f5f9;
+      --input-bg: #ffffff;
+      --chatbot-bg: #ffffff;
+      --chatbot-header-bg: rgba(241, 245, 249, 0.8);
+      --chat-bubble-user-bg: #e0f2fe;
+      --chat-bubble-user-text: #0369a1;
+      --chat-bubble-assistant-bg: #f1f5f9;
+      --chat-bubble-assistant-text: #334155;
+      --chat-input-row-bg: rgba(241, 245, 249, 0.5);
+      --chat-input-bg: #ffffff;
+      --inventory-details-bg: rgba(148, 163, 184, 0.08);
+      --inventory-summary-hover-bg: rgba(148, 163, 184, 0.15);
+      --ai-analysis-bg: rgba(248, 250, 252, 0.95);
+      --btn-copy-color: var(--text);
+    }
+    body.light-theme pre {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+    body.light-theme .app-sidebar {
+      background: #0f172a !important;
+    }
+    body.light-theme .brand-title {
+      color: #ffffff !important;
+    }
+    body.light-theme .sidebar-menu button {
+      color: #94a3b8 !important;
+    }
+    body.light-theme .sidebar-menu button.active {
+      color: #ffffff !important;
+      background: rgba(255, 255, 255, 0.1) !important;
+    }
+    body.light-theme .sidebar-footer {
+      border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+    body.light-theme .user-info .username {
+      color: #ffffff !important;
+    }
+    body.light-theme .role-lbl {
+      color: #94a3b8 !important;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    
+    <!-- LEFT SIDEBAR NAVIGATION -->
+    <aside class="app-sidebar">
+      <div class="sidebar-top">
+        <div class="sidebar-brand">
+          <span class="brand-logo">✦</span>
+          <div>
+            <p class="brand-eyebrow">AI SRE ENGINE</p>
+            <h1 class="brand-title">Reliability Console</h1>
+          </div>
+        </div>
+        
+        <nav class="sidebar-menu">
+          <button class="menu-item active" id="menu-btn-dashboard" onclick="switchView('dashboard')">
+            <span class="menu-icon">📊</span> Overview
+          </button>
+          <button class="menu-item" id="menu-btn-incidents" onclick="switchView('incidents')">
+            <span class="menu-icon">🚨</span> Incident Command
+          </button>
+          <button class="menu-item" id="menu-btn-explorer" onclick="switchView('explorer')">
+            <span class="menu-icon">📦</span> Live Container Logs
+          </button>
+          {% if is_admin %}
+            <button class="menu-item" id="menu-btn-users" onclick="switchView('users')">
+              <span class="menu-icon">🔑</span> Viewer Access
+            </button>
+            <button class="menu-item" id="menu-btn-finops" onclick="switchView('finops')">
+              <span class="menu-icon">💰</span> FinOps Cost
+            </button>
+          {% endif %}
+        </nav>
+      </div>
+      
+      <div class="sidebar-footer">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">
+          <span style="font-size: 0.68rem; font-weight: bold; color: #94a3b8; letter-spacing: 0.05em; text-transform: uppercase;">Theme Mode</span>
+          <button onclick="toggleThemeMode()" id="btn-theme-toggle" class="btn-clear" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.15); color: #edf5ff; cursor: pointer; background: transparent; transition: all 0.2s;">☀️ Light</button>
+        </div>
+        <div class="user-chip">
+          <span class="avatar">{{ admin_user[:1]|upper }}</span>
+          <div class="user-info">
+            <span class="username">{{ admin_user }}</span>
+            <span class="role-lbl">{% if is_admin %}Platform Admin{% else %}Logs Viewer{% endif %}</span>
+          </div>
+        </div>
+        <form method="post" action="{{ url_for('admin_logout') }}" style="margin: 0;">
+          <button class="btn-signout" type="submit">Sign Out</button>
+        </form>
+      </div>
+    </aside>
+
+    <!-- MAIN VIEWPORT CONTENT -->
+    <main class="app-viewport">
+      
+      
+      
+      <!-- VIEW 1: Dashboard Overview (Landing Page) -->
+      <section class="viewport-view" id="view-dashboard">
+        <div class="view-header">
+          <p class="eyebrow">COMMAND CENTER</p>
+          <h2>Reliability Overview</h2>
+          <p class="view-description">Continuous automated analysis, telemetry checks, and diagnostics for your node cluster.</p>
+        </div>
+
+        <section class="metrics" style="margin-top: 24px;">
+          <div class="metric-card">
+            <span class="metric-label">Actionable events</span>
+            <strong>{{ reports|length }}</strong>
+            <small>{% if is_admin %}Excluding skipped/rejected states{% else %}Authorized log reports{% endif %}</small>
+          </div>
+          <div class="metric-card live-card">
+            <span class="metric-label">Next health check</span>
+            <strong id="next-check" aria-live="polite">Loading…</strong>
+            <small id="last-check">Synchronizing monitor status</small>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Log evidence</span>
+            <strong>{{ reports|selectattr('has_logs')|list|length }}</strong>
+            <small>Reports containing log streams</small>
+          </div>
+        </section>
+        <div class="ai-briefing-banner" id="auto-remediation-banner" style="background: rgba(89, 217, 192, 0.08); border-color: rgba(89, 217, 192, 0.25); margin-top: 14px; display: none;">
+          <span class="briefing-tag" style="background: rgba(89, 217, 192, 0.2); color: var(--accent);">⚡ AI SRE Auto-Remediation</span>
+          <p class="briefing-text" id="auto-remediation-text" style="color: var(--accent); margin: 0 0 0 10px;">Successfully recovered target service autonomously in the last check cycle.</p>
+        </div>
+
+        <!-- System status summary panel -->
+        <div class="dashboard-panel" style="margin-top: 28px;">
+          <div class="panel-header">
+            <h3>⚙️ Active System Overview</h3>
+            <p class="panel-desc">Real-time state snapshot of host system services.</p>
+          </div>
+          
+          <div class="inventory-table-wrapper" style="border-top: none; padding: 0; margin-top: 16px;">
+            <table class="inventory-table">
+              <thead>
+                <tr>
+                  <th>Service Name</th>
+                  <th>Status</th>
+                  <th>SubState</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for s in services %}
+                  <tr>
+                    <td><strong>{{ s.name }}</strong></td>
+                    <td><span class="status-badge {% if s.status == 'running' or s.status == 'active' %}success{% else %}danger{% endif %}">{{ s.status }}</span></td>
+                    <td><code>{{ s.substate or 'n/a' }}</code></td>
+                  </tr>
+                {% else %}
+                  <tr>
+                    <td colspan="3" class="empty-table-msg">No services monitored. Run the collector to inspect status.</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 2: Incidents Commander (Incident Command Center) -->
+      <section class="viewport-view" id="view-incidents" style="display: none;">
+        <div class="view-header">
+          <p class="eyebrow">DIAGNOSTIC EVENTS</p>
+          <h2>Incident Command Center</h2>
+          <p class="view-description">Inspect telemetry diagnostics, review AI recommendations, and query system logs.</p>
+        </div>
+
+        <div class="workspace-layout">
+          <!-- Sidebar Panel: List of Incident Reports -->
+          <aside class="incident-sidebar">
+            <div class="sidebar-header">
+              <p class="eyebrow">INCIDENT HISTORY</p>
+            </div>
+            <div class="incident-list">
+              {% for report in reports %}
+                <div class="incident-card" data-filename="{{ report.filename }}" onclick="selectReport('{{ report.filename }}')">
+                  <div class="card-meta">
+                    <span class="card-time">{{ report.timestamp }}</span>
+                    {% if is_admin %}
+                      <span class="status-badge {{ report.remediation_status }}">{{ report.remediation_status }}</span>
+                    {% else %}
+                      <span class="status-badge success">Authorized</span>
+                    {% endif %}
+                  </div>
+                  <p class="card-summary">{{ report.summary or "Diagnostic Cycle" }}</p>
+                  <div class="card-footer">
+                    <span class="filename-lbl">{{ report.filename }}</span>
+                  </div>
+                </div>
+              {% else %}
+                <div class="empty">No incident reports found yet.</div>
+              {% endfor %}
+            </div>
+          </aside>
+
+          <!-- Main Workspace: Selected Incident Inspector -->
+          <section class="workspace-panel" id="workspace-panel">
+            <div class="empty-workspace">
+              <div class="empty-state-visual">🔍</div>
+              <h2>Select an incident report</h2>
+              <p>Choose an entry from the Incident History sidebar to inspect diagnostics, view service logs, and interact with the AI SRE chatbot.</p>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- VIEW 3: Live Container Logs -->
+      <section class="viewport-view" id="view-explorer" style="display: none;">
+        <div class="view-header">
+          <p class="eyebrow">LIVE TELEMETRY</p>
+          <h2>Live Container Logs</h2>
+          <p class="view-description">Direct context querying and live logging for Docker containers and Kubernetes objects.</p>
+        </div>
+
+        <div class="explorer-workspace-layout">
+          <!-- Explorer Left Column: Resource Lists -->
+          <aside class="explorer-sidebar">
+            <div class="explorer-mode-tabs">
+              <button class="mode-tab-btn active" id="mode-btn-docker" onclick="switchExplorerMode('docker')">🐳 Docker</button>
+              <button class="mode-tab-btn" id="mode-btn-k8s" onclick="switchExplorerMode('k8s')">☸️ Kubernetes</button>
+            </div>
+
+            <!-- Docker Panel -->
+            <div class="explorer-mode-panel" id="explorer-panel-docker">
+              <div style="display: flex; gap: 4px; padding: 4px; background: rgba(148, 163, 184, 0.04); border-radius: 8px; margin-bottom: 12px; border: 1px solid var(--line);">
+                <button class="mode-tab-btn active" id="docker-subtab-containers" style="font-size: 0.65rem; padding: 4px 6px; flex: 1; text-align: center; border-radius: 6px; cursor: pointer; transition: all 0.2s;" onclick="switchDockerSubtab('containers')">Containers</button>
+                <button class="mode-tab-btn" id="docker-subtab-images" style="font-size: 0.65rem; padding: 4px 6px; flex: 1; text-align: center; border-radius: 6px; cursor: pointer; transition: all 0.2s;" onclick="switchDockerSubtab('images')">Images</button>
+                <button class="mode-tab-btn" id="docker-subtab-volumes" style="font-size: 0.65rem; padding: 4px 6px; flex: 1; text-align: center; border-radius: 6px; cursor: pointer; transition: all 0.2s;" onclick="switchDockerSubtab('volumes')">Volumes</button>
+              </div>
+
+              <div class="search-box" style="margin-bottom: 10px;">
+                <input type="text" id="docker-search" placeholder="Search Docker resources..." oninput="filterDockerResources()">
+              </div>
+
+              <!-- Containers List -->
+              <div class="resource-scroll-list" id="docker-container-list">
+                <p class="loading-msg">Loading Docker containers...</p>
+              </div>
+              
+              <!-- Images List -->
+              <div class="resource-scroll-list" id="docker-image-list" style="display: none;">
+                <p class="loading-msg">Loading Docker images...</p>
+              </div>
+              
+              <!-- Volumes List -->
+              <div class="resource-scroll-list" id="docker-volume-list" style="display: none;">
+                <p class="loading-msg">Loading Docker volumes...</p>
+              </div>
+            </div>
+
+            <!-- Kubernetes Panel -->
+            <div class="explorer-mode-panel" id="explorer-panel-k8s" style="display: none;">
+              <div class="k8s-controls">
+                <div class="ctrl-group">
+                  <label for="k8s-context-select">K8s Context:</label>
+                  <select id="k8s-context-select" onchange="onK8sContextChange(this.value)">
+                    <option value="">Loading contexts...</option>
+                  </select>
+                </div>
+                <div class="ctrl-group">
+                  <label for="k8s-namespace-select">Namespace:</label>
+                  <select id="k8s-namespace-select" onchange="onK8sNamespaceChange(this.value)">
+                    <option value="">Select context first...</option>
+                  </select>
+                </div>
+
+                <div class="ctrl-group">
+                  <label for="k8s-resource-type-select">Resource Type:</label>
+                  <select id="k8s-resource-type-select" onchange="switchK8sResourceType(this.value)">
+                    <option value="pods" selected>Pods</option>
+                    <option value="deployments">Deployments</option>
+                    <option value="services">Services (Svcs)</option>
+                    <option value="ingresses">Ingresses</option>
+                    <option value="replicasets">ReplicaSets</option>
+                    <option value="daemonsets">DaemonSets</option>
+                    <option value="statefulsets">StatefulSets</option>
+                    <option value="jobs">Jobs</option>
+                    <option value="cronjobs">CronJobs</option>
+                    <option value="configmaps">ConfigMaps</option>
+                    <option value="secrets">Secrets</option>
+                    <option value="persistentvolumeclaims">PVCs</option>
+                    <option value="events">Events</option>
+                    <option value="nodes">Nodes</option>
+                  </select>
+                </div>
+              </div>
+              <div class="resource-scroll-list" id="k8s-resource-list">
+                <p class="empty-state-info">Select context and namespace to load resources.</p>
+              </div>
+            </div>
+          </aside>
+
+          <!-- Explorer Right Column: Real-time Terminal & Describe YAML -->
+          <section class="explorer-workspace">
+            <div class="explorer-workspace-header">
+              <div class="explorer-resource-title">
+                <span class="explorer-res-badge" id="explorer-res-badge">EXPLORER</span>
+                <h2 id="explorer-active-resource-name">No resource selected</h2>
+                <p class="filename-lbl" id="explorer-active-resource-meta">Choose a Docker container or K8s object to inspect</p>
+              </div>
+              
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <button class="btn-ai-analyze" id="btn-explorer-ai" style="display: none;" onclick="triggerAIExplorerAnalysis()">✦ Analyze with AI</button>
+                
+                <div class="explorer-tab-bar" id="explorer-view-tabs" style="display: none;">
+                  <button class="view-tab-btn active" id="view-tab-logs" onclick="switchExplorerViewTab('logs')">📋 Live Logs</button>
+                  <button class="view-tab-btn" id="view-tab-describe" onclick="switchExplorerViewTab('describe')">🔍 Describe YAML</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dynamic AI Analysis panel -->
+            <div id="explorer-ai-analysis-container" style="display: none; margin-bottom: 16px;"></div>
+
+            <!-- AI Anomaly Scan Report Panel -->
+            <div id="explorer-ai-anomaly-container" style="display: none; margin-bottom: 16px;"></div>
+
+            <!-- Log Stream Console Controls -->
+            <div id="explorer-console-controls" style="display: none; justify-content: flex-end; gap: 8px; margin-bottom: 8px;">
+              <button id="btn-anomaly-scan" class="btn-clear" style="font-size: 0.7rem; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--accent); color: var(--accent); background: rgba(13, 148, 136, 0.08); cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s; font-weight: bold;" onclick="triggerAIAnomalyScan()">🔍 AI Anomaly Scan</button>
+              <button id="btn-pause-stream" class="btn-clear" style="font-size: 0.7rem; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--line); color: var(--text); background: transparent; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s;" onclick="toggleLogStreamPause()">⏸️ Pause</button>
+              <button id="btn-clear-console" class="btn-clear" style="font-size: 0.7rem; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--line); color: var(--text); background: transparent; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s;" onclick="clearLogConsole()">🗑️ Clear</button>
+              <button id="btn-download-console" class="btn-clear" style="font-size: 0.7rem; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--line); color: var(--text); background: transparent; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s;" onclick="downloadLogConsole()">📥 Download</button>
+            </div>
+
+            <div class="explorer-console-viewer">
+              <pre><code id="explorer-console-output">Select a container or Kubernetes resource from the left panel to begin.</code></pre>
+            </div>
+
+            <!-- Interactive Explorer Chatbot -->
+            <div class="chatbot-container" id="explorer-chatbot" style="display: none; margin-top: 16px; flex-direction: column;">
+              <div class="chatbot-header" style="background: rgba(20, 35, 60, 0.4); border-bottom: 1px solid var(--line); border-top-left-radius: 12px; border-top-right-radius: 12px;">
+                <div class="bot-meta">
+                  <span class="bot-status-pulse"></span>
+                  <div>
+                    <h4>AI Explorer Assistant</h4>
+                    <p class="bot-context">Focus: <strong id="explorer-chat-focus">Logs / Describe Metadata</strong></p>
+                  </div>
+                </div>
+                <button class="btn-clear" onclick="clearExplorerChatSession()">Clear Chat</button>
+              </div>
+              <div class="chat-history" id="explorer-chat-history-list" style="max-height: 250px; overflow-y: auto;"></div>
+              <div class="chat-input-row">
+                <input type="text" id="explorer-chat-user-msg" placeholder="Ask about this resource's logs or configuration..." onkeydown="handleExplorerChatKey(event)">
+                <button type="button" class="btn-send" onclick="sendExplorerChatQuery()">Send</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- VIEW 4: Viewer Access Manager (Admin settings) -->
+      {% if is_admin %}
+      <section class="viewport-view" id="view-users" style="display: none;">
+        <div class="view-header">
+          <p class="eyebrow">ACCESS CONTROL</p>
+          <h2>Viewer Access Permissions</h2>
+          <p class="view-description">Create and manage access keys for third-party logs viewing.</p>
+        </div>
+
+        <div id="users-alert-box" class="alert-box" style="display: none; padding: 12px 18px; background: rgba(255, 104, 110, 0.15); border: 1px solid var(--danger); border-radius: 8px; color: var(--danger); font-size: 0.8rem; margin-bottom: 20px; font-weight: bold;"></div>
+
+        <div class="workspace-layout">
+          <!-- Create user panel -->
+          <section class="management-card" style="background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); height: fit-content; min-width: 320px;">
+            <p class="eyebrow">CREATE VIEWER</p>
+            <h3 style="margin-top: 6px;">New Viewer Credentials</h3>
+            
+            <form method="post" action="{{ url_for('admin_users') }}" class="user-form" style="display: flex; flex-direction: column; gap: 14px; margin-top: 16px;">
+              <div class="ctrl-group">
+                <label for="users-username">Username</label>
+                <input name="username" id="users-username" placeholder="Username" required style="background: var(--input-bg); border: 1px solid var(--line); border-radius: 6px; color: var(--text); padding: 8px 12px; font-size: 0.8rem; outline: none;">
+              </div>
+              <div class="ctrl-group">
+                <label for="users-password">Temporary Password</label>
+                <input name="password" id="users-password" type="password" placeholder="Password" required style="background: var(--input-bg); border: 1px solid var(--line); border-radius: 6px; color: var(--text); padding: 8px 12px; font-size: 0.8rem; outline: none;">
+              </div>
+              
+              <fieldset style="border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-top: 4px;">
+                <legend style="font-size: 0.72rem; font-weight: bold; color: var(--muted); text-transform: uppercase; padding: 0 6px;">Allowed log sources</legend>
+                <div style="display: flex; flex-direction: column; gap: 8px; max-height: 150px; overflow-y: auto; padding-top: 6px;">
+                  <label style="font-size: 0.78rem; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--accent); font-weight: bold; border-bottom: 1px solid var(--line); padding-bottom: 6px; margin-bottom: 2px;">
+                    <input type="checkbox" name="sources" value="k8s:*"> Kubernetes (All Resources)
+                  </label>
+                  <label style="font-size: 0.78rem; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--accent); font-weight: bold; border-bottom: 1px solid var(--line); padding-bottom: 6px; margin-bottom: 2px;">
+                    <input type="checkbox" name="sources" value="docker:*"> Docker (All Resources)
+                  </label>
+                  {% for source in sources %}
+                    <label style="font-size: 0.78rem; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text);">
+                      <input type="checkbox" name="sources" value="{{ source }}">
+                      {% if not source.startswith('k8s:') and not source.startswith('docker:') %}
+                        System Service: {{ source }}
+                      {% else %}
+                        {{ source }}
+                      {% endif %}
+                    </label>
+                  {% endfor %}
+                </div>
+              </fieldset>
+ 
+              <div class="ctrl-group">
+                <label for="users-wildcards">Custom Wildcard Rules (comma-separated)</label>
+                <input name="wildcards" id="users-wildcards" placeholder="e.g. *, docker:*, k8s:default/*" style="background: var(--input-bg); border: 1px solid var(--line); border-radius: 6px; color: var(--text); padding: 8px 12px; font-size: 0.8rem; outline: none;">
+                <small style="color: var(--muted); font-size: 0.68rem; margin-top: 2px;">Use <code>*</code> to authorize all logs, or prefixes like <code>docker:*</code> / <code>k8s:namespace/*</code>.</small>
+              </div>
+              
+              <button class="primary" style="margin-top: 8px;">Create viewer account</button>
+            </form>
+          </section>
+
+          <!-- Viewer accounts checklist -->
+          <section class="viewer-list" style="flex: 1; display: flex; flex-direction: column; gap: 12px;">
+            <p class="eyebrow" style="margin-left: 6px;">EXISTING VIEWERS</p>
+            {% for viewer in viewers %}
+              <details class="report" style="background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                <summary style="padding: 16px 20px; font-size: 0.84rem; font-weight: 700; color: var(--text); cursor: pointer; background: rgba(20, 35, 60, 0.25); display: flex; justify-content: space-between; align-items: center;">
+                  <span>
+                    <strong>{{ viewer.username }}</strong>
+                    <small style="margin-left: 8px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; background: {% if viewer.is_active %}rgba(51, 207, 191, 0.15){% else %}rgba(255, 104, 110, 0.15){% endif %}; color: {% if viewer.is_active %}var(--accent){% else %}var(--danger){% endif %}; padding: 2px 6px; border-radius: 4px;">{{ 'Active' if viewer.is_active else 'Disabled' }}</small>
+                  </span>
+                  <span class="status success" style="font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">Viewer Key</span>
+                </summary>
+                
+                <form method="post" action="{{ url_for('admin_user_settings', username=viewer.username) }}" class="user-form settings-form" style="padding: 20px; display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--line);">
+                  <fieldset style="border: 1px solid var(--line); border-radius: 8px; padding: 12px;">
+                    <legend style="font-size: 0.72rem; font-weight: bold; color: var(--muted); text-transform: uppercase; padding: 0 6px;">Allowed log sources</legend>
+                    <div style="display: flex; flex-direction: column; gap: 8px; max-height: 150px; overflow-y: auto; padding-top: 6px;">
+                      <label style="font-size: 0.78rem; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--accent); font-weight: bold; border-bottom: 1px solid var(--line); padding-bottom: 6px; margin-bottom: 2px;">
+                        <input type="checkbox" name="sources" value="k8s:*" {% if 'k8s:*' in viewer.allowed_sources %}checked{% endif %}> Kubernetes (All Resources)
+                      </label>
+                      <label style="font-size: 0.78rem; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--accent); font-weight: bold; border-bottom: 1px solid var(--line); padding-bottom: 6px; margin-bottom: 2px;">
+                        <input type="checkbox" name="sources" value="docker:*" {% if 'docker:*' in viewer.allowed_sources %}checked{% endif %}> Docker (All Resources)
+                      </label>
+                      {% for source in sources %}
+                        <label style="font-size: 0.78rem; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text);">
+                          <input type="checkbox" name="sources" value="{{ source }}" {% if source in viewer.allowed_sources %}checked{% endif %}>
+                          {% if not source.startswith('k8s:') and not source.startswith('docker:') %}
+                            System Service: {{ source }}
+                          {% else %}
+                            {{ source }}
+                          {% endif %}
+                        </label>
+                      {% endfor %}
+                    </div>
+                  </fieldset>
+ 
+                  {% set wildcards = [] %}
+                  {% for src in viewer.allowed_sources %}
+                    {% if '*' in src or src not in sources %}
+                      {% set _ = wildcards.append(src) %}
+                    {% endif %}
+                  {% endfor %}
+                  <div class="ctrl-group">
+                    <label for="wildcards-{{ viewer.username }}" style="font-size: 0.72rem; font-weight: bold; color: var(--muted); text-transform: uppercase;">Custom Wildcard Rules (comma-separated)</label>
+                    <input name="wildcards" id="wildcards-{{ viewer.username }}" value="{{ wildcards|join(', ') }}" placeholder="e.g. *, docker:*, k8s:default/*" style="background: var(--input-bg); border: 1px solid var(--line); border-radius: 6px; color: var(--text); padding: 8px 12px; font-size: 0.8rem; outline: none;">
+                  </div>
+                  
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <label style="font-size: 0.78rem; color: var(--text); display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                      <input type="checkbox" name="is_active" {% if viewer.is_active %}checked{% endif %}> Account active
+                    </label>
+                  </div>
+                  
+                  <div class="ctrl-group">
+                    <label for="pass-{{ viewer.username }}" style="font-size: 0.72rem; font-weight: bold; color: var(--muted); text-transform: uppercase;">Reset password (optional)</label>
+                    <input name="password" id="pass-{{ viewer.username }}" type="password" placeholder="Leave blank to preserve password" style="background: var(--input-bg); border: 1px solid var(--line); border-radius: 6px; color: var(--text); padding: 8px 12px; font-size: 0.8rem; outline: none;">
+                  </div>
+                  
+                  <div style="display: flex; gap: 8px; align-items: center;">
+                    <button class="primary" style="align-self: flex-start;">Save settings</button>
+                    <button type="button" class="btn-clear" style="border: 1px solid var(--danger); color: var(--danger); font-size: 0.72rem; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: all 0.2s;" onclick="deleteViewerUser('{{ viewer.username }}')">Remove User</button>
+                  </div>
+                </form>
+              </details>
+            {% else %}
+              <div class="empty" style="text-align: center; color: var(--muted); font-style: italic; padding: 24px;">No viewer accounts created yet.</div>
+            {% endfor %}
+          </section>
+        </div>
+
+        <!-- Remediation Audit Log -->
+        <section class="remediation-audit-panel" style="background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); margin-top: 24px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 16px;">
+            <div>
+              <p class="eyebrow" style="margin: 0;">AUDIT TRAIL</p>
+              <h3 style="margin: 4px 0 0 0;">Remediation Execution History</h3>
+            </div>
+            <button class="btn-clear" onclick="loadRemediationAudits()" style="font-size: 0.72rem; padding: 6px 12px; border-radius: 6px;">🔄 Refresh Audits</button>
+          </div>
+          
+          <div class="table-wrapper" style="overflow-x: auto; max-height: 350px; overflow-y: auto;">
+            <table class="inventory-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+              <thead>
+                <tr style="border-bottom: 2px solid var(--line); font-size: 0.72rem; text-transform: uppercase; color: var(--muted); border-top: none;">
+                  <th style="padding: 10px; background: transparent; border: none;">Timestamp</th>
+                  <th style="padding: 10px; background: transparent; border: none;">Operator</th>
+                  <th style="padding: 10px; background: transparent; border: none;">Command</th>
+                  <th style="padding: 10px; background: transparent; border: none;">Status</th>
+                  <th style="padding: 10px; background: transparent; border: none;">Details</th>
+                </tr>
+              </thead>
+              <tbody id="remediation-audit-rows">
+                <tr>
+                  <td colspan="5" style="text-align: center; color: var(--muted); font-style: italic; padding: 20px;">Loading remediation audit history...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+      {% endif %}
+
+      {% if is_admin %}
+      <!-- VIEW 5: FinOps Cost Optimization Dashboard -->
+      <section class="viewport-view" id="view-finops" style="display: none;">
+        <div class="view-header">
+          <p class="eyebrow">FINOPS COGNITIVE RADAR</p>
+          <h2>Cloud Cost & Utilization Analyzer</h2>
+          <p class="view-description">Track AWS billing patterns, pinpoint container CPU/RAM waste, and deploy right-sizing actions.</p>
+        </div>
+
+        <section class="metrics" style="margin-top: 24px;">
+          <div class="metric-card">
+            <span class="metric-label">Projected monthly spend</span>
+            <strong id="finops-monthly-cost">$0.00</strong>
+            <small id="finops-cost-trend" style="color: var(--danger);">+0.0% MoM growth</small>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label" id="finops-waste-label">Estimated resource waste</span>
+            <strong style="color: var(--danger);" id="finops-waste-cost">$0.00</strong>
+            <small style="color: var(--danger);" id="finops-waste-sub">Overallocated limits/requests</small>
+          </div>
+          <div class="metric-card" style="border-color: var(--accent);">
+            <span class="metric-label" style="color: var(--accent);" id="finops-savings-label">Potential monthly savings</span>
+            <strong style="color: var(--accent); font-size: 1.2rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; display: block;" id="finops-savings-cost">$0.00</strong>
+            <small style="color: var(--accent); font-weight: bold;" id="finops-savings-sub">⚡ Ready to claim</small>
+          </div>
+        </section>
+
+        <div class="workspace-layout" style="margin-top: 24px; gap: 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));">
+          <!-- Cost Breakdown Card -->
+          <article class="management-card" style="background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);">
+            <p class="eyebrow">AWS BILLING DISTRIBUTION</p>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin: 6px 0 16px 0;">
+              <h3 style="margin: 0;">Top Cost Generating Services</h3>
+              <button class="btn-clear" id="btn-billing-toggle" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--muted); cursor: pointer;" onclick="toggleBillingFormat()">$ / %</button>
+            </div>
+            
+            <div id="finops-services-list" style="display: flex; flex-direction: column; gap: 14px;">
+              <p class="loading-msg">Fetching AWS Cost Explorer summary...</p>
+            </div>
+            
+            <div id="finops-billing-source" style="font-size: 0.65rem; color: var(--muted); margin-top: 20px; font-style: italic; border-top: 1px solid var(--line); padding-top: 12px; display: flex; align-items: center; justify-content: space-between;">
+              <span>Data source: AWS Cost Explorer API</span>
+              <span id="finops-billing-mode-badge" class="status-badge success" style="font-size: 0.55rem; padding: 1px 4px;">LIVE</span>
+            </div>
+          </article>
+
+          <!-- Historical Billing Trend Card -->
+          <article class="management-card" style="background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);">
+            <p class="eyebrow">HISTORICAL TREND</p>
+            <h3 style="margin: 6px 0 16px 0;">Past 3 Months Billing Comparison</h3>
+            
+            <div id="finops-history-list" style="display: flex; flex-direction: column; gap: 14px;">
+              <p class="loading-msg">Fetching historical billing data...</p>
+            </div>
+            
+            <div style="font-size: 0.65rem; color: var(--muted); margin-top: 20px; font-style: italic; border-top: 1px solid var(--line); padding-top: 12px; display: flex; align-items: center; justify-content: space-between;">
+              <span>Data source: AWS Cost Explorer API</span>
+              <span class="status-badge success" style="font-size: 0.55rem; padding: 1px 4px; background: rgba(89, 217, 192, 0.1); color: var(--accent);">STABLE</span>
+            </div>
+          </article>
+
+          <!-- Underutilization Card -->
+          <article class="management-card" style="background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);">
+            <p class="eyebrow">CAPACITY WASTE REPORT</p>
+            <h3 style="margin: 6px 0 16px 0;">AWS Service Capacity Waste</h3>
+            
+            <div class="table-wrapper" style="overflow-x: auto; max-height: 250px; overflow-y: auto;">
+              <table class="inventory-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+                <thead>
+                  <tr style="border-bottom: 2px solid var(--line); font-size: 0.72rem; text-transform: uppercase; color: var(--muted); border-top: none;">
+                    <th style="padding: 8px; background: transparent; border: none;">AWS Service</th>
+                    <th style="padding: 8px; background: transparent; border: none;">Efficiency / Metrics</th>
+                    <th style="padding: 8px; background: transparent; border: none;">Provisioned Resources</th>
+                    <th style="padding: 8px; background: transparent; border: none;">Waste Score</th>
+                  </tr>
+                </thead>
+                <tbody id="finops-utilization-rows">
+                  <tr>
+                    <td colspan="4" style="text-align: center; color: var(--muted); font-style: italic; padding: 20px;">Fetching container metrics...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <!-- AI Cost Trend Analyzer Card -->
+          <article class="management-card" style="background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); border-color: rgba(89, 217, 192, 0.25);">
+            <p class="eyebrow" style="color: var(--accent);">✦ AI SRE RADAR</p>
+            <h3 style="margin: 6px 0 16px 0;">Automated Cost Comparison</h3>
+            
+            <div id="finops-ai-comparison" style="font-size: 0.78rem; color: var(--text); line-height: 1.5; display: flex; flex-direction: column; gap: 10px; justify-content: center; min-height: 120px;">
+              <p class="loading-msg" style="text-align: center; color: var(--muted);">Gemini SRE comparing billing history & generating insights...</p>
+            </div>
+            
+            <div style="font-size: 0.65rem; color: var(--muted); margin-top: 20px; font-style: italic; border-top: 1px solid var(--line); padding-top: 12px; display: flex; align-items: center; justify-content: space-between;">
+              <span>Insights generated by Gemini</span>
+              <span class="status-badge success" style="font-size: 0.55rem; padding: 1px 4px; background: rgba(89, 217, 192, 0.1); color: var(--accent);">ACTIVE</span>
+            </div>
+          </article>
+        </div>
+
+      </section>
+      {% endif %}
+
+    </main>
+  </div>
+
+  <!-- Modal Dialog for Post-Mortem Report -->
+  <div id="post-mortem-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5, 12, 22, 0.85); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+    <div style="background: var(--panel); border: 1px solid var(--line); border-radius: 16px; width: 90%; max-width: 800px; height: 80%; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(0,0,0,0.3);">
+      <div style="padding: 20px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; background: rgba(148, 163, 184, 0.04);">
+        <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">📄 AI Generated Incident Post-Mortem</h3>
+        <button onclick="closePostMortemModal()" style="background: transparent; border: 1px solid var(--line); color: var(--text); font-size: 1.2rem; cursor: pointer; padding: 4px 10px; border-radius: 6px; transition: all 0.2s;">&times;</button>
+      </div>
+      <div style="flex: 1; overflow-y: auto; padding: 24px; color: var(--text); line-height: 1.6; font-size: 0.88rem;" id="post-mortem-content">
+        <!-- Rendered Post-Mortem Markdown here -->
+      </div>
+      <div style="padding: 16px 20px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 10px; background: rgba(148, 163, 184, 0.04);">
+        <button onclick="downloadPostMortemMarkdown()" style="background: var(--accent); color: #07111f; font-weight: bold; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Download Markdown</button>
+        <button onclick="closePostMortemModal()" style="background: transparent; border: 1px solid var(--line); color: var(--text); padding: 8px 16px; border-radius: 6px; cursor: pointer;">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Injected Server Data
+    const reports = {{ reports | tojson }};
+    const servicesInventory = {{ services | tojson }};
+    const isAdmin = {{ 'true' if is_admin else 'false' }};
+
+    let activeReport = null;
+    let activeService = null;
+    let chatSessions = {}; // Maps "filename" -> array of message objects {sender, text}
+    
+    // Live Streaming state
+    let logEventSource = null;
+    let explorerEventSource = null;
+    let logStreamPaused = false;
+    let billingServicesData = [];
+    let billingShowPercentage = false;
+    let explorerAnalysisCache = {}; // Global cache for background AI telemetry analyses
+    let explorerChatSessions = {}; // Global cache for background AI chatbot conversations
+
+    // Infrastructure Explorer state
+    let activeView = 'dashboard'; // 'dashboard', 'incidents', 'explorer', 'users'
+    let activeExplorerMode = 'docker'; // 'docker' or 'k8s'
+    let dockerContainers = [];
+    let k8sContexts = [];
+    let k8sActiveContext = '';
+    let k8sActiveNamespace = '';
+    let k8sActiveResourceType = 'pods';
+    let explorerActiveResource = null; // {type: 'docker'|'k8s', name: '', namespace: '', context: '', resType: ''}
+    let explorerActiveViewTab = 'logs'; // 'logs' or 'describe'
+
+    // --- GLOBAL SIDEBAR NAVIGATION VIEW SWITCHER ---
+    function switchView(viewName, updateHash = true) {
+      activeView = viewName;
+
+      // Close active SSE log stream when switching tabs
+      if (logEventSource) {
+        logEventSource.close();
+        logEventSource = null;
+      }
+      if (explorerEventSource) {
+        explorerEventSource.close();
+        explorerEventSource = null;
+      }
+
+      // Update sidebar active buttons
+      const views = ['dashboard', 'incidents', 'explorer', 'users', 'finops'];
+      views.forEach(v => {
+        const btn = document.getElementById(`menu-btn-${v}`);
+        if (btn) {
+          if (v === viewName) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        }
+
+        const el = document.getElementById(`view-${v}`);
+        if (el) {
+          el.style.display = (v === viewName) ? 'block' : 'none';
+        }
+      });
+
+      if (updateHash) {
+        window.location.hash = viewName;
+      }
+
+      // Lazy load view initializations
+      if (viewName === 'explorer') {
+        initializeExplorer();
+      } else if (viewName === 'incidents') {
+        if (activeReport) {
+          selectReport(activeReport.filename);
+        }
+      } else if (viewName === 'dashboard') {
+        loadAIHealthBriefing();
+      } else if (viewName === 'users' && isAdmin) {
+        loadRemediationAudits();
+      } else if (viewName === 'finops' && isAdmin) {
+        loadFinOpsData();
+      }
+    }
+
+    // --- AI HEALTH BRIEFING BANNER LOAD ---
+    async function loadAIHealthBriefing() {
+      const bannerText = document.getElementById('ai-health-text');
+      if (bannerText) {
+        bannerText.textContent = "Scanning cluster telemetry and generating executive briefings...";
+      }
+      try {
+        const response = await fetch("{{ url_for('ai_health_brief') }}");
+        const data = await response.json();
+        if (bannerText) {
+          bannerText.textContent = data.briefing || 'No health briefing available.';
+        }
+      } catch (err) {
+        if (bannerText) {
+          bannerText.textContent = 'AI SRE health briefing is currently offline.';
+        }
+      }
+
+      // Check for SRE Auto-Remediations
+      try {
+        const auditRes = await fetch("{{ url_for('get_remediation_audits') }}");
+        const auditData = await auditRes.json();
+        const audits = auditData.audits || [];
+        const lastAuto = audits.find(a => a.operator === 'AI_SRE_AGENT');
+        const banner = document.getElementById('auto-remediation-banner');
+        
+        if (lastAuto && banner) {
+          const textEl = document.getElementById('auto-remediation-text');
+          textEl.innerHTML = `Autonomously resolved <code>${lastAuto.command}</code>: <strong>${lastAuto.stdout || lastAuto.stderr}</strong> (${lastAuto.created_at.replace('T', ' ').substring(11, 19)})`;
+          banner.style.display = 'flex';
+        }
+      } catch (e) {
+        console.log("Failed to load auto-remediation banner details: " + e.message);
+      }
+    }
+
+    // --- EXPLORER CORE LOGIC ---
+    function initializeExplorer() {
+      if (activeExplorerMode === 'docker') {
+        loadDockerResources();
+      } else {
+        loadK8sContexts();
+      }
+    }
+
+    function switchExplorerMode(mode) {
+      activeExplorerMode = mode;
+      document.getElementById('mode-btn-docker').className = `mode-tab-btn ${mode === 'docker' ? 'active' : ''}`;
+      document.getElementById('mode-btn-k8s').className = `mode-tab-btn ${mode === 'k8s' ? 'active' : ''}`;
+      document.getElementById('explorer-panel-docker').style.display = mode === 'docker' ? 'flex' : 'none';
+      document.getElementById('explorer-panel-k8s').style.display = mode === 'k8s' ? 'flex' : 'none';
+
+      // Reset Active Resource workspace
+      resetExplorerWorkspace();
+      if (mode === 'docker') {
+        switchDockerSubtab('containers');
+      } else {
+        initializeExplorer();
+      }
+    }
+
+    function resetExplorerWorkspace() {
+      if (explorerEventSource) {
+        explorerEventSource.close();
+        explorerEventSource = null;
+      }
+      explorerActiveResource = null;
+      document.getElementById('explorer-active-resource-name').textContent = 'No resource selected';
+      document.getElementById('explorer-active-resource-meta').textContent = 'Choose a Docker container or K8s object to inspect';
+      document.getElementById('explorer-res-badge').textContent = 'EXPLORER';
+      document.getElementById('explorer-view-tabs').style.display = 'none';
+      document.getElementById('btn-explorer-ai').style.display = 'none';
+      document.getElementById('explorer-ai-analysis-container').style.display = 'none';
+      document.getElementById('explorer-chatbot').style.display = 'none';
+      document.getElementById('explorer-console-output').textContent = "Select a container or Kubernetes resource from the left panel to begin.";
+    }
+
+    // --- DOCKER EXPLORER ---
+    async function loadDockerContainers() {
+      const listContainer = document.getElementById('docker-container-list');
+      listContainer.innerHTML = '<p class="loading-msg">Loading Docker containers...</p>';
+
+      try {
+        const response = await fetch("{{ url_for('list_docker_containers') }}");
+        const data = await response.json();
+
+        if (data.error) {
+          listContainer.innerHTML = `<p class="empty-state-info">Error: ${data.error}</p>`;
+          return;
+        }
+
+        dockerContainers = data.containers || [];
+        renderDockerContainers();
+      } catch (err) {
+        listContainer.innerHTML = `<p class="empty-state-info">Failed to fetch containers: ${err.message}</p>`;
+      }
+    }
+
+    function renderDockerContainers() {
+      const listContainer = document.getElementById('docker-container-list');
+      listContainer.innerHTML = '';
+
+      if (!dockerContainers.length) {
+        listContainer.innerHTML = '<p class="empty-state-info">No Docker containers found on the host.</p>';
+        return;
+      }
+
+      dockerContainers.forEach(c => {
+        const isActive = c.status.toLowerCase().startsWith('up');
+        const activeClass = (explorerActiveResource && explorerActiveResource.type === 'docker' && explorerActiveResource.name === c.name) ? 'active' : '';
+
+        const item = document.createElement('div');
+        item.className = `resource-item-row ${activeClass}`;
+        item.onclick = () => selectDockerContainer(c);
+
+        item.innerHTML = `
+          <div class="item-row-header">
+            <span class="item-row-name">${c.name}</span>
+            <span class="status-dot-lbl">
+              <span class="status-dot ${isActive ? 'active' : 'failed'}"></span>
+              ${isActive ? 'Running' : 'Stopped'}
+            </span>
+          </div>
+          <div class="item-row-details">
+            ID: ${c.id.substring(0, 12)} | Image: ${c.image}
+          </div>
+        `;
+        listContainer.appendChild(item);
+      });
+    }
+
+    let activeDockerSubtab = 'containers'; // 'containers', 'images', 'volumes'
+    let dockerImages = [];
+    let dockerVolumes = [];
+
+    function switchDockerSubtab(subtab) {
+      activeDockerSubtab = subtab;
+      
+      ['containers', 'images', 'volumes'].forEach(tab => {
+        const btn = document.getElementById(`docker-subtab-${tab}`);
+        if (btn) {
+          if (tab === subtab) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        }
+        
+        const listEl = document.getElementById(`docker-${tab.slice(0, -1)}-list`);
+        if (listEl) {
+          listEl.style.display = (tab === subtab) ? 'block' : 'none';
+        }
+      });
+      
+      loadDockerResources();
+    }
+
+    function loadDockerResources() {
+      document.getElementById('docker-search').value = '';
+      if (activeDockerSubtab === 'containers') {
+        loadDockerContainers();
+      } else if (activeDockerSubtab === 'images') {
+        loadDockerImages();
+      } else if (activeDockerSubtab === 'volumes') {
+        loadDockerVolumes();
+      }
+    }
+
+    async function loadDockerImages() {
+      const listContainer = document.getElementById('docker-image-list');
+      listContainer.innerHTML = '<p class="loading-msg">Loading Docker images...</p>';
+
+      try {
+        const response = await fetch("/admin/docker/images");
+        const data = await response.json();
+
+        if (data.error) {
+          listContainer.innerHTML = `<p class="empty-state-info">Error: ${data.error}</p>`;
+          return;
+        }
+
+        dockerImages = data.images || [];
+        renderDockerImages();
+      } catch (err) {
+        listContainer.innerHTML = `<p class="empty-state-info">Failed to fetch images: ${err.message}</p>`;
+      }
+    }
+
+    function renderDockerImages() {
+      const listContainer = document.getElementById('docker-image-list');
+      listContainer.innerHTML = '';
+
+      if (!dockerImages.length) {
+        listContainer.innerHTML = '<p class="empty-state-info">No Docker images found on the host.</p>';
+        return;
+      }
+
+      dockerImages.forEach(img => {
+        const activeClass = (explorerActiveResource && explorerActiveResource.type === 'docker' && explorerActiveResource.name === img.id) ? 'active' : '';
+
+        const item = document.createElement('div');
+        item.className = `resource-item-row ${activeClass}`;
+        item.onclick = () => selectDockerImage(img);
+
+        item.innerHTML = `
+          <div class="item-row-header">
+            <span class="item-row-name">${img.repository}:${img.tag}</span>
+            <span class="status-dot-lbl" style="font-size: 0.62rem; color: var(--muted); font-family: monospace;">${img.id.substring(0, 12)}</span>
+          </div>
+          <div class="item-row-details">
+            Size: ${img.size} | Created: ${img.created.split(' ')[0]}
+          </div>
+        `;
+        listContainer.appendChild(item);
+      });
+    }
+
+    async function loadDockerVolumes() {
+      const listContainer = document.getElementById('docker-volume-list');
+      listContainer.innerHTML = '<p class="loading-msg">Loading Docker volumes...</p>';
+
+      try {
+        const response = await fetch("/admin/docker/volumes");
+        const data = await response.json();
+
+        if (data.error) {
+          listContainer.innerHTML = `<p class="empty-state-info">Error: ${data.error}</p>`;
+          return;
+        }
+
+        dockerVolumes = data.volumes || [];
+        renderDockerVolumes();
+      } catch (err) {
+        listContainer.innerHTML = `<p class="empty-state-info">Failed to fetch volumes: ${err.message}</p>`;
+      }
+    }
+
+    function renderDockerVolumes() {
+      const listContainer = document.getElementById('docker-volume-list');
+      listContainer.innerHTML = '';
+
+      if (!dockerVolumes.length) {
+        listContainer.innerHTML = '<p class="empty-state-info">No Docker volumes found.</p>';
+        return;
+      }
+
+      dockerVolumes.forEach(vol => {
+        const activeClass = (explorerActiveResource && explorerActiveResource.type === 'docker' && explorerActiveResource.name === vol.name) ? 'active' : '';
+
+        const item = document.createElement('div');
+        item.className = `resource-item-row ${activeClass}`;
+        item.onclick = () => selectDockerVolume(vol);
+
+        item.innerHTML = `
+          <div class="item-row-header">
+            <span class="item-row-name">${vol.name}</span>
+            <span class="status-dot-lbl" style="font-size: 0.62rem; color: var(--muted); font-family: monospace;">${vol.driver}</span>
+          </div>
+          <div class="item-row-details">
+            Scope: ${vol.scope}
+          </div>
+        `;
+        listContainer.appendChild(item);
+      });
+    }
+
+    function filterDockerContainers() {
+      const q = document.getElementById('docker-search').value.toLowerCase().trim();
+      const rows = document.querySelectorAll('#docker-container-list .resource-item-row');
+      
+      dockerContainers.forEach((c, index) => {
+        const match = c.name.toLowerCase().includes(q) || c.image.toLowerCase().includes(q) || c.id.includes(q);
+        if (rows[index]) {
+          rows[index].style.display = match ? 'flex' : 'none';
+        }
+      });
+    }
+
+    function filterDockerImages() {
+      const q = document.getElementById('docker-search').value.toLowerCase().trim();
+      const rows = document.querySelectorAll('#docker-image-list .resource-item-row');
+      
+      dockerImages.forEach((img, index) => {
+        const match = img.repository.toLowerCase().includes(q) || img.tag.toLowerCase().includes(q) || img.id.toLowerCase().includes(q);
+        if (rows[index]) {
+          rows[index].style.display = match ? 'flex' : 'none';
+        }
+      });
+    }
+
+    function filterDockerVolumes() {
+      const q = document.getElementById('docker-search').value.toLowerCase().trim();
+      const rows = document.querySelectorAll('#docker-volume-list .resource-item-row');
+      
+      dockerVolumes.forEach((vol, index) => {
+        const match = vol.name.toLowerCase().includes(q) || vol.driver.toLowerCase().includes(q);
+        if (rows[index]) {
+          rows[index].style.display = match ? 'flex' : 'none';
+        }
+      });
+    }
+
+    function filterDockerResources() {
+      if (activeDockerSubtab === 'containers') {
+        filterDockerContainers();
+      } else if (activeDockerSubtab === 'images') {
+        filterDockerImages();
+      } else if (activeDockerSubtab === 'volumes') {
+        filterDockerVolumes();
+      }
+    }
+
+    function selectDockerImage(img) {
+      resetExplorerWorkspace();
+      explorerActiveResource = {
+        type: 'docker',
+        name: img.id,
+        resType: 'image',
+        meta: `Repository: ${img.repository} | Tag: ${img.tag} | Size: ${img.size}`
+      };
+
+      document.getElementById('explorer-active-resource-name').textContent = `${img.repository}:${img.tag}`;
+      document.getElementById('explorer-active-resource-meta').textContent = explorerActiveResource.meta;
+      document.getElementById('explorer-res-badge').textContent = 'DOCKER IMAGE';
+
+      document.getElementById('explorer-view-tabs').style.display = 'none';
+      document.getElementById('explorer-console-controls').style.display = 'none';
+      document.getElementById('btn-explorer-ai').style.display = 'none';
+      
+      document.querySelectorAll('#docker-image-list .resource-item-row').forEach(row => {
+        if (row.querySelector('.item-row-name').textContent === `${img.repository}:${img.tag}`) {
+          row.classList.add('active');
+        } else {
+          row.classList.remove('active');
+        }
+      });
+
+      inspectDockerResource('image', img.id);
+    }
+
+    function selectDockerVolume(vol) {
+      resetExplorerWorkspace();
+      explorerActiveResource = {
+        type: 'docker',
+        name: vol.name,
+        resType: 'volume',
+        meta: `Driver: ${vol.driver} | Scope: ${vol.scope}`
+      };
+
+      document.getElementById('explorer-active-resource-name').textContent = vol.name;
+      document.getElementById('explorer-active-resource-meta').textContent = explorerActiveResource.meta;
+      document.getElementById('explorer-res-badge').textContent = 'DOCKER VOLUME';
+
+      document.getElementById('explorer-view-tabs').style.display = 'none';
+      document.getElementById('explorer-console-controls').style.display = 'none';
+      document.getElementById('btn-explorer-ai').style.display = 'none';
+      
+      document.querySelectorAll('#docker-volume-list .resource-item-row').forEach(row => {
+        if (row.querySelector('.item-row-name').textContent === vol.name) {
+          row.classList.add('active');
+        } else {
+          row.classList.remove('active');
+        }
+      });
+
+      inspectDockerResource('volume', vol.name);
+    }
+
+    async function inspectDockerResource(resType, name) {
+      const viewer = document.getElementById('explorer-console-output');
+      viewer.textContent = `Querying docker ${resType} inspect metadata...`;
+
+      try {
+        const res = await fetch(`/admin/docker/inspect?type=${resType}&name=${encodeURIComponent(name)}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        viewer.textContent = data.inspect || '[No inspect metadata returned]';
+      } catch (err) {
+        viewer.textContent = `Error inspecting resource: ${err.message}`;
+      }
+    }
+
+    function selectDockerContainer(c) {
+      resetExplorerWorkspace();
+      explorerActiveResource = {
+        type: 'docker',
+        name: c.name,
+        resType: 'container',
+        meta: `Image: ${c.image} | Status: ${c.status}`
+      };
+
+      // Set active resource display
+      document.getElementById('explorer-active-resource-name').textContent = c.name;
+      document.getElementById('explorer-active-resource-meta').textContent = explorerActiveResource.meta;
+      document.getElementById('explorer-res-badge').textContent = 'DOCKER CONTAINER';
+
+      // Docker logs explorer tab (Describe not supported for raw docker containers)
+      document.getElementById('explorer-view-tabs').style.display = 'none';
+      document.getElementById('explorer-console-controls').style.display = 'flex';
+      document.getElementById('btn-explorer-ai').style.display = 'inline-flex';
+      
+      logStreamPaused = false;
+      const pauseBtn = document.getElementById('btn-pause-stream');
+      if (pauseBtn) {
+        pauseBtn.textContent = '⏸️ Pause';
+        pauseBtn.style.borderColor = 'var(--line)';
+      }
+
+      // Render highlight in sidebar
+      document.querySelectorAll('#docker-container-list .resource-item-row').forEach(row => {
+        if (row.querySelector('.item-row-name').textContent === c.name) {
+          row.classList.add('active');
+        } else {
+          row.classList.remove('active');
+        }
+      });
+
+      // Restore AI analysis from background cache if it exists
+      restoreAIExplorerAnalysisFromCache();
+
+      // Show and initialize Explorer Chatbot
+      document.getElementById('explorer-chatbot').style.display = 'flex';
+      document.getElementById('explorer-chat-focus').textContent = `${c.name} (Docker Container)`;
+      renderExplorerChatHistory();
+
+      // Stream logs
+      streamExplorerLogs(explorerActiveResource);
+    }
+
+    // --- KUBERNETES EXPLORER ---
+    async function loadK8sContexts() {
+      const selector = document.getElementById('k8s-context-select');
+      selector.innerHTML = '<option value="">Loading contexts...</option>';
+
+      try {
+        const response = await fetch("{{ url_for('list_k8s_contexts') }}");
+        const data = await response.json();
+
+        if (data.error) {
+          selector.innerHTML = `<option value="">Error: ${data.error}</option>`;
+          document.getElementById('k8s-resource-list').innerHTML = `<p class="empty-state-info">Error: ${data.error}</p>`;
+          return;
+        }
+
+        k8sContexts = data.contexts || [];
+        k8sActiveContext = data.current || k8sContexts[0] || '';
+
+        selector.innerHTML = '';
+        k8sContexts.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c;
+          opt.textContent = c;
+          if (c === k8sActiveContext) opt.selected = true;
+          selector.appendChild(opt);
+        });
+
+        if (k8sActiveContext) {
+          loadK8sNamespaces(k8sActiveContext);
+        }
+      } catch (err) {
+        selector.innerHTML = '<option value="">Failed to load contexts</option>';
+      }
+    }
+
+    async function loadK8sNamespaces(context) {
+      const selector = document.getElementById('k8s-namespace-select');
+      selector.innerHTML = '<option value="">Loading namespaces...</option>';
+
+      try {
+        const response = await fetch(`{{ url_for('list_k8s_namespaces') }}?context=${encodeURIComponent(context)}`);
+        const data = await response.json();
+
+        if (data.error) {
+          selector.innerHTML = `<option value="">Error loading namespaces</option>`;
+          return;
+        }
+
+        const namespaces = data.namespaces || [];
+        k8sActiveNamespace = namespaces.includes('default') ? 'default' : (namespaces[0] || '');
+
+        selector.innerHTML = '';
+        namespaces.forEach(ns => {
+          const opt = document.createElement('option');
+          opt.value = ns;
+          opt.textContent = ns;
+          if (ns === k8sActiveNamespace) opt.selected = true;
+          selector.appendChild(opt);
+        });
+
+        if (k8sActiveNamespace) {
+          loadK8sResources();
+        }
+      } catch (err) {
+        selector.innerHTML = '<option value="">Failed to load namespaces</option>';
+      }
+    }
+
+    async function loadK8sResources() {
+      const listContainer = document.getElementById('k8s-resource-list');
+      listContainer.innerHTML = '<p class="loading-msg">Loading Kubernetes resources...</p>';
+
+      if (!k8sActiveContext || !k8sActiveNamespace) {
+        listContainer.innerHTML = '<p class="empty-state-info">Please select context and namespace.</p>';
+        return;
+      }
+
+      try {
+        const url = `{{ url_for('list_k8s_resources') }}?context=${encodeURIComponent(k8sActiveContext)}&namespace=${encodeURIComponent(k8sActiveNamespace)}&type=${k8sActiveResourceType}`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.error) {
+          listContainer.innerHTML = `<p class="empty-state-info">Error: ${data.error}</p>`;
+          return;
+        }
+
+        const resources = data.resources || [];
+        listContainer.innerHTML = '';
+
+        if (!resources.length) {
+          listContainer.innerHTML = `<p class="empty-state-info">No running ${k8sActiveResourceType} found in this namespace.</p>`;
+          return;
+        }
+
+        resources.forEach(r => {
+          const activeClass = (explorerActiveResource && explorerActiveResource.type === 'k8s' && explorerActiveResource.name === r.name && explorerActiveResource.resType === k8sActiveResourceType) ? 'active' : '';
+
+          const item = document.createElement('div');
+          item.className = `resource-item-row ${activeClass}`;
+          item.onclick = () => selectK8sResource(r);
+
+          const statusLower = r.status.toLowerCase();
+          const isOk = statusLower.startsWith('running') || statusLower.startsWith('active') || statusLower.startsWith('completed') || statusLower.includes('up') || statusLower.includes('ok') || statusLower.includes('ready');
+          const isErr = statusLower.startsWith('error') || statusLower.startsWith('crash') || statusLower.startsWith('failed') || statusLower.includes('err') || statusLower.includes('oom');
+
+          let statusDotClass = 'pending';
+          if (isOk) statusDotClass = 'ok';
+          if (isErr) statusDotClass = 'failed';
+
+          item.innerHTML = `
+            <div class="item-row-header">
+              <span class="item-row-name">${r.name}</span>
+              <span class="status-dot-lbl">
+                <span class="status-dot ${statusDotClass}"></span>
+                ${r.status}
+              </span>
+            </div>
+            <div class="item-row-details">
+              Age: ${r.age} | Namespace: ${k8sActiveNamespace}
+            </div>
+          `;
+          listContainer.appendChild(item);
+        });
+      } catch (err) {
+        listContainer.innerHTML = `<p class="empty-state-info">Failed to fetch resources: ${err.message}</p>`;
+      }
+    }
+
+    function onK8sContextChange(context) {
+      k8sActiveContext = context;
+      k8sActiveNamespace = '';
+      document.getElementById('k8s-resource-list').innerHTML = '<p class="empty-state-info">Loading namespaces...</p>';
+      resetExplorerWorkspace();
+      loadK8sNamespaces(context);
+    }
+
+    function onK8sNamespaceChange(ns) {
+      k8sActiveNamespace = ns;
+      resetExplorerWorkspace();
+      loadK8sResources();
+    }
+
+    function switchK8sResourceType(type) {
+      k8sActiveResourceType = type;
+      
+      const select = document.getElementById('k8s-resource-type-select');
+      if (select && select.value !== type) {
+        select.value = type;
+      }
+
+      resetExplorerWorkspace();
+      loadK8sResources();
+    }
+
+    function selectK8sResource(r) {
+      if (explorerEventSource) {
+        explorerEventSource.close();
+        explorerEventSource = null;
+      }
+
+      explorerActiveResource = {
+        type: 'k8s',
+        name: r.name,
+        namespace: k8sActiveNamespace,
+        context: k8sActiveContext,
+        resType: k8sActiveResourceType,
+        meta: `Namespace: ${k8sActiveNamespace} | Context: ${k8sActiveContext} | Status: ${r.status}`
+      };
+
+      // Set active workspace titles
+      document.getElementById('explorer-active-resource-name').textContent = r.name;
+      document.getElementById('explorer-active-resource-meta').textContent = explorerActiveResource.meta;
+      document.getElementById('explorer-res-badge').textContent = `K8s ${k8sActiveResourceType.toUpperCase()}`;
+
+      // Only pods support logs. Describe is supported for all resource types.
+      const viewTabs = document.getElementById('explorer-view-tabs');
+      const logTab = document.getElementById('view-tab-logs');
+      
+      // Restore AI analysis from background cache if it exists
+      restoreAIExplorerAnalysisFromCache();
+
+      // Show and initialize Explorer Chatbot
+      document.getElementById('explorer-chatbot').style.display = 'flex';
+      document.getElementById('explorer-chat-focus').textContent = `${r.name} (K8s ${k8sActiveResourceType})`;
+      renderExplorerChatHistory();
+
+      // AI analysis and tabs enabled on resource select
+      viewTabs.style.display = 'flex';
+      document.getElementById('btn-explorer-ai').style.display = 'inline-flex';
+      
+      if (k8sActiveResourceType === 'pods') {
+        logTab.style.display = 'inline-block';
+        switchExplorerViewTab(explorerActiveViewTab); // restore last selected tab view
+      } else {
+        logTab.style.display = 'none';
+        switchExplorerViewTab('describe'); // force describe since logs aren't available
+      }
+
+      // Sidebar highlight
+      document.querySelectorAll('#k8s-resource-list .resource-item-row').forEach(row => {
+        if (row.querySelector('.item-row-name').textContent === r.name) {
+          row.classList.add('active');
+        } else {
+          row.classList.remove('active');
+        }
+      });
+    }
+
+    function switchExplorerViewTab(tab) {
+      explorerActiveViewTab = tab;
+      document.getElementById('view-tab-logs').className = `view-tab-btn ${tab === 'logs' ? 'active' : ''}`;
+      document.getElementById('view-tab-describe').className = `view-tab-btn ${tab === 'describe' ? 'active' : ''}`;
+
+      if (!explorerActiveResource) return;
+
+      if (explorerEventSource) {
+        explorerEventSource.close();
+        explorerEventSource = null;
+      }
+
+      // Check background cache for AI insights when swapping tabs
+      restoreAIExplorerAnalysisFromCache();
+
+      if (tab === 'logs') {
+        document.getElementById('explorer-console-controls').style.display = 'flex';
+        logStreamPaused = false;
+        const pauseBtn = document.getElementById('btn-pause-stream');
+        if (pauseBtn) {
+          pauseBtn.textContent = '⏸️ Pause';
+          pauseBtn.style.borderColor = 'var(--line)';
+        }
+        streamExplorerLogs(explorerActiveResource);
+      } else {
+        document.getElementById('explorer-console-controls').style.display = 'none';
+        describeK8sResource();
+      }
+    }
+
+    // --- METADATA DESCRIBE API FETCH ---
+    async function describeK8sResource() {
+      const viewer = document.getElementById('explorer-console-output');
+      viewer.textContent = 'Querying kubectl describe metadata...';
+
+      try {
+        const url = `{{ url_for('describe_k8s_resource') }}?context=${encodeURIComponent(explorerActiveResource.context)}&namespace=${encodeURIComponent(explorerActiveResource.namespace)}&type=${explorerActiveResource.resType}&name=${encodeURIComponent(explorerActiveResource.name)}`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.error) {
+          viewer.textContent = `Error: ${data.error}`;
+          return;
+        }
+
+        viewer.textContent = data.describe || 'No metadata returned.';
+      } catch (err) {
+        viewer.textContent = `Describe failed: ${err.message}`;
+      }
+    }
+
+    // --- REALTIME STREAM LOGGER ---
+    function streamExplorerLogs(resource) {
+      const viewer = document.getElementById('explorer-console-output');
+      viewer.textContent = 'Connecting to live container output stream...';
+
+      let streamUrl = '';
+      if (resource.type === 'docker') {
+        streamUrl = `{{ url_for('stream_logs') }}?source=docker:${encodeURIComponent(resource.name)}`;
+      } else {
+        streamUrl = `{{ url_for('stream_logs') }}?source=k8s&context=${encodeURIComponent(resource.context)}&namespace=${encodeURIComponent(resource.namespace)}&pod=${encodeURIComponent(resource.name)}`;
+      }
+
+      explorerEventSource = new EventSource(streamUrl);
+
+      let scrollTimeout;
+      explorerEventSource.onmessage = function(event) {
+        if (logStreamPaused) return;
+        if (viewer.textContent === 'Connecting to live container output stream...' || viewer.textContent.startsWith('Error:')) {
+          viewer.textContent = event.data + '\n';
+        } else {
+          viewer.textContent += event.data + '\n';
+        }
+        
+        // Truncate buffer to max 800 lines to prevent DOM performance issues
+        const lines = viewer.textContent.split('\n');
+        if (lines.length > 800) {
+          viewer.textContent = lines.slice(lines.length - 800).join('\n');
+        }
+        
+        // Throttle scrolling reflows
+        if (!scrollTimeout) {
+          scrollTimeout = requestAnimationFrame(() => {
+            const container = viewer.parentElement;
+            if (container) {
+              container.scrollTop = container.scrollHeight;
+            }
+            scrollTimeout = null;
+          });
+        }
+      };
+
+      explorerEventSource.onerror = function() {
+        if (explorerEventSource) {
+          explorerEventSource.close();
+          explorerEventSource = null;
+        }
+        if (viewer.textContent === 'Connecting to live container output stream...' || viewer.textContent.startsWith('Error:')) {
+          viewer.textContent = '[Live stream offline - container inactive or command timed out]';
+        } else {
+          viewer.textContent += '\n\n[Live stream disconnected]';
+        }
+      };
+    }
+
+    // --- LOG STREAM CONSOLE CONTROL ACTIONS ---
+    function toggleLogStreamPause() {
+      logStreamPaused = !logStreamPaused;
+      const btn = document.getElementById('btn-pause-stream');
+      if (logStreamPaused) {
+        btn.textContent = '▶️ Resume';
+        btn.style.borderColor = 'var(--accent)';
+      } else {
+        btn.textContent = '⏸️ Pause';
+        btn.style.borderColor = 'var(--line)';
+      }
+    }
+
+    function clearLogConsole() {
+      const viewer = document.getElementById('explorer-console-output');
+      if (viewer) viewer.textContent = '';
+    }
+
+    function downloadLogConsole() {
+      const viewer = document.getElementById('explorer-console-output');
+      if (!viewer || !explorerActiveResource) return;
+      const text = viewer.textContent;
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${explorerActiveResource.name.replace(/\//g, '_')}_logs.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // --- AI EXPLORER ANOMALY ANALYZER STATE CACHING ---
+    function getExplorerResourceKey(res) {
+      if (!res) return '';
+      if (res.type === 'docker') {
+        return `docker:${res.name}`;
+      } else {
+        return `k8s:${res.context}/${res.namespace}/${res.resType}/${res.name}`;
+      }
+    }
+
+    function restoreAIExplorerAnalysisFromCache() {
+      const aiContainer = document.getElementById('explorer-ai-analysis-container');
+      if (!aiContainer) return;
+
+      const key = getExplorerResourceKey(explorerActiveResource);
+      const cached = explorerAnalysisCache[key];
+
+      if (cached) {
+        aiContainer.style.display = 'block';
+        if (cached.status === 'loading') {
+          aiContainer.innerHTML = `
+            <div class="ai-scanning-loader">
+              <div class="scanner-radar"></div>
+              <div class="scanner-text">✦ AI SRE Agent analyzing logs & metadata in the background...</div>
+            </div>
+          `;
+        } else if (cached.status === 'success') {
+          renderAIAnalysisResult(cached.data);
+        } else if (cached.status === 'error') {
+          renderAIAnalysisError(cached.error);
+        }
+      } else {
+        aiContainer.style.display = 'none';
+      }
+    }
+
+    function renderAIAnalysisResult(data) {
+      const aiContainer = document.getElementById('explorer-ai-analysis-container');
+      if (!aiContainer) return;
+
+      const cmdBlock = data.suggested_command ? `
+        <div class="suggested-command-box">
+          <code>${data.suggested_command}</code>
+          <div style="display: flex; gap: 8px; margin-top: 6px;">
+            <button class="btn-copy-cmd" style="font-size: 0.65rem; padding: 4px 10px; border-radius: 4px;" onclick="navigator.clipboard.writeText('${data.suggested_command}'); this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 2000);">Copy</button>
+            ${isAdmin ? `<button class="btn-execute-cmd" style="font-size: 0.65rem; padding: 4px 10px; border-radius: 4px; background: var(--accent); color: #07111f; font-weight: bold; border: none; cursor: pointer;" onclick="triggerCommandExecution('${data.suggested_command}')">⚡ Run</button>` : ''}
+          </div>
+        </div>
+      ` : '';
+
+      let fixHtml = data.proposed_fix || 'No specific fix identified.';
+      if (!fixHtml.includes('<ul') && !fixHtml.includes('<li') && fixHtml.includes('*')) {
+        const lines = fixHtml.split('\n').filter(l => l.trim().startsWith('*') || l.trim().startsWith('-'));
+        if (lines.length) {
+          fixHtml = `<ul class="fix-bullet-list">${lines.map(l => `<li>${l.replace(/^[\*\-]\s*/, '')}</li>`).join('')}</ul>`;
+        }
+      }
+
+      aiContainer.innerHTML = `
+        <div class="ai-analysis-panel">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(89, 217, 192, 0.2); padding-bottom: 10px;">
+            <span class="briefing-tag" style="margin: 0;">✦ AI SRE Diagnostic insight</span>
+            <button class="btn-clear" onclick="document.getElementById('explorer-ai-analysis-container').style.display='none';" style="font-size: 0.65rem; padding: 2px 8px;">Dismiss</button>
+          </div>
+          
+          <div class="ai-analysis-grid">
+            <div class="analysis-summary-box">
+              <h4 class="analysis-section-title">Executive Analysis</h4>
+              <p>${data.analysis || 'Analysis completed.'}</p>
+              
+              <div class="risk-level-container">
+                <span>Risk Assessment:</span>
+                <span class="risk-badge ${data.risk_level?.toLowerCase() || 'medium'}">${data.risk_level || 'Medium'}</span>
+              </div>
+            </div>
+            
+            <div class="analysis-fix-box">
+              <h4 class="analysis-section-title">Recommended Remediation</h4>
+              <div style="font-size: 0.8rem; color: #c9d9eb;">
+                ${fixHtml}
+              </div>
+              ${cmdBlock}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderAIAnalysisError(errorMessage) {
+      const aiContainer = document.getElementById('explorer-ai-analysis-container');
+      if (!aiContainer) return;
+      aiContainer.innerHTML = `
+        <div class="ai-analysis-panel" style="border-color: var(--danger);">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span class="briefing-tag" style="color: var(--danger);">⚠ Analysis Error</span>
+            <button class="btn-clear" onclick="document.getElementById('explorer-ai-analysis-container').style.display='none';">Dismiss</button>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--danger); margin: 0;">Failed to analyze telemetry: ${errorMessage}</p>
+        </div>
+      `;
+    }
+
+    async function triggerAIExplorerAnalysis() {
+      if (!explorerActiveResource) return;
+      const key = getExplorerResourceKey(explorerActiveResource);
+      const consoleText = document.getElementById('explorer-console-output').textContent;
+      const aiContainer = document.getElementById('explorer-ai-analysis-container');
+
+      // Update state in background cache
+      explorerAnalysisCache[key] = { status: 'loading' };
+
+      aiContainer.style.display = 'block';
+      aiContainer.innerHTML = `
+        <div class="ai-scanning-loader">
+          <div class="scanner-radar"></div>
+          <div class="scanner-text">✦ AI SRE Agent analyzing logs & metadata in the background...</div>
+        </div>
+      `;
+      aiContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+      try {
+        const response = await fetch("{{ url_for('ai_analyze_resource') }}", {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: explorerActiveResource.name,
+            type: explorerActiveResource.resType || 'container',
+            platform: explorerActiveResource.type, // 'docker' or 'k8s'
+            content: consoleText
+          })
+        });
+
+        if (!response.ok) throw new Error('Analysis failed.');
+        const data = await response.json();
+
+        // Update success status in background cache
+        explorerAnalysisCache[key] = { status: 'success', data: data };
+
+        // Only update current DOM if the user is still looking at this specific resource
+        if (getExplorerResourceKey(explorerActiveResource) === key) {
+          renderAIAnalysisResult(data);
+        }
+      } catch (err) {
+        // Update error status in background cache
+        explorerAnalysisCache[key] = { status: 'error', error: err.message };
+
+        // Only update current DOM if the user is still looking at this specific resource
+        if (getExplorerResourceKey(explorerActiveResource) === key) {
+          renderAIAnalysisError(err.message);
+        }
+      }
+    }
+
+    // --- EXPLORER CHATBOT LOGIC ---
+    function clearExplorerChatSession() {
+      if (!explorerActiveResource) return;
+      const key = getExplorerResourceKey(explorerActiveResource);
+      explorerChatSessions[key] = [];
+      renderExplorerChatHistory();
+    }
+
+    function renderExplorerChatHistory() {
+      const chatList = document.getElementById('explorer-chat-history-list');
+      if (!chatList) return;
+
+      chatList.innerHTML = '';
+      if (!explorerActiveResource) return;
+
+      const key = getExplorerResourceKey(explorerActiveResource);
+      const history = explorerChatSessions[key] || [];
+
+      if (!history.length) {
+        chatList.innerHTML = `
+          <div class="empty-chat-welcome">
+            <span class="welcome-icon">💬</span>
+            <p>Ask me anything about this resource's logs or configuration metadata. I can diagnose errors, explain status warnings, or suggest recovery commands.</p>
+          </div>
+        `;
+        return;
+      }
+
+      history.forEach(msg => {
+        const bubble = document.createElement('div');
+        bubble.className = `chat-bubble ${msg.sender}`;
+
+        const avatar = document.createElement('span');
+        avatar.className = 'chat-bubble-avatar';
+        avatar.textContent = msg.sender === 'user' ? '👤' : '🤖';
+
+        const textDiv = document.createElement('div');
+        textDiv.className = 'chat-bubble-text';
+        textDiv.innerHTML = msg.text.replace(/\n/g, '<br>');
+
+        // Auto detect and append remediation execution buttons for admins
+        if (msg.sender === 'assistant' && isAdmin) {
+          const commands = detectRemediationCommands(msg.text);
+          if (commands.length) {
+            const btnContainer = document.createElement('div');
+            btnContainer.className = 'chat-remediation-row';
+            btnContainer.style = 'display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;';
+            
+            commands.forEach(cmd => {
+              const btn = document.createElement('button');
+              btn.className = 'btn-execute-remediation';
+              btn.style = 'background: rgba(89, 217, 192, 0.12); border: 1px solid var(--accent); color: var(--accent); padding: 4px 10px; border-radius: 4px; font-size: 0.72rem; cursor: pointer; display: flex; align-items: center; gap: 4px; font-family: monospace; transition: all 0.2s;';
+              btn.innerHTML = `⚡ Run: <code>${cmd}</code>`;
+              btn.onclick = () => triggerCommandExecution(cmd);
+              btnContainer.appendChild(btn);
+            });
+            textDiv.appendChild(btnContainer);
+          }
+        }
+
+        bubble.appendChild(avatar);
+        bubble.appendChild(textDiv);
+        chatList.appendChild(bubble);
+      });
+
+      chatList.scrollTop = chatList.scrollHeight;
+    }
+
+    function handleExplorerChatKey(event) {
+      if (event.key === 'Enter') {
+        sendExplorerChatQuery();
+      }
+    }
+
+    async function sendExplorerChatQuery() {
+      const input = document.getElementById('explorer-chat-user-msg');
+      if (!input) return;
+      const question = input.value.trim();
+      if (!question || !explorerActiveResource) return;
+
+      input.value = '';
+      const key = getExplorerResourceKey(explorerActiveResource);
+      const consoleText = document.getElementById('explorer-console-output').textContent;
+
+      if (!explorerChatSessions[key]) explorerChatSessions[key] = [];
+      explorerChatSessions[key].push({ sender: 'user', text: question });
+      renderExplorerChatHistory();
+
+      // Append typing indicator
+      const chatList = document.getElementById('explorer-chat-history-list');
+      const typing = document.createElement('div');
+      typing.className = 'chat-bubble assistant typing-bubble';
+      typing.id = 'explorer-typing-indicator';
+      typing.innerHTML = `
+        <span class="chat-bubble-avatar">🤖</span>
+        <div class="chat-bubble-text">
+          <div class="typing-indicator-dots">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+      `;
+      chatList.appendChild(typing);
+      chatList.scrollTop = chatList.scrollHeight;
+
+      try {
+        const response = await fetch("{{ url_for('admin_explorer_chat') }}", {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            question: question,
+            name: explorerActiveResource.name,
+            type: explorerActiveResource.resType || 'container',
+            platform: explorerActiveResource.type,
+            content: consoleText,
+            history: explorerChatSessions[key].slice(0, -1)
+          })
+        });
+
+        const indicator = document.getElementById('explorer-typing-indicator');
+        if (indicator) indicator.remove();
+
+        if (!response.ok) throw new Error('Chat request failed.');
+        const data = await response.json();
+
+        explorerChatSessions[key].push({ sender: 'assistant', text: data.answer || 'No response returned.' });
+        renderExplorerChatHistory();
+      } catch (err) {
+        const indicator = document.getElementById('explorer-typing-indicator');
+        if (indicator) indicator.remove();
+
+        explorerChatSessions[key].push({ sender: 'assistant', text: `Error: ${err.message}` });
+        renderExplorerChatHistory();
+      }
+    }
+
+    function detectRemediationCommands(text) {
+      if (!text) return [];
+      const regexes = [
+        /(?:docker|systemctl|sudo\s+systemctl)\s+(?:start|restart|stop)\s+[a-zA-Z0-9_./-]+/gi,
+        /docker\s+(?:rm|rmi|image\s+rm|volume\s+rm)\s+(?:-f\s+)?[a-zA-Z0-9_./:-]+/gi,
+        /kubectl\s+rollout\s+restart\s+(?:deployment|statefulset|daemonset|deployment.apps|statefulset.apps)(?:\/|\s+)[a-zA-Z0-9_./-]+(?:\s+-n\s+[a-zA-Z0-9_.-]+)?(?:\s+--context=[a-zA-Z0-9_.:/-]+)?/gi,
+        /kubectl\s+scale\s+(?:deployment|statefulset)\s+[a-zA-Z0-9_./-]+\s+--replicas=[0-9]+(?:\s+-n\s+[a-zA-Z0-9_.-]+)?(?:\s+--context=[a-zA-Z0-9_.:/-]+)?/gi,
+        /aws\s+ec2\s+delete-volume\s+--volume-id\s+vol-[a-f0-9]+(?:\s+--region\s+[a-z0-9-]+)?/gi,
+        /aws\s+ec2\s+stop-instances\s+--instance-ids\s+i-[a-f0-9]+(?:\s+--region\s+[a-z0-9-]+)?/gi,
+        /docker\s+run\s+-d\s+--name\s+[a-zA-Z0-9_./-]+\s+(?:-e\s+[a-zA-Z0-9_.-]+=[a-zA-Z0-9_.-]+\s+)?-p\s+[0-9]+:[0-9]+\s+[a-zA-Z0-9_./:-]+/gi
+      ];
+      
+      let commands = [];
+      regexes.forEach(regex => {
+        const matches = text.match(regex);
+        if (matches) {
+          matches.forEach(m => {
+            const cmd = m.trim();
+            const tokens = cmd.split(/\s+/);
+            const lastToken = tokens[tokens.length - 1].toLowerCase();
+            const stopwords = ['is', 'the', 'to', 'a', 'or', 'in', 'on', 'for', 'this', 'that', 'it', 'and', 'but', 'of', 'by', 'with', 'as', 'at', 'from', 'into', 'about'];
+            if (!stopwords.includes(lastToken)) {
+              commands.push(cmd);
+            }
+          });
+        }
+      });
+      return Array.from(new Set(commands));
+    }
+
+    async function triggerCommandExecution(cmd) {
+      if (!isAdmin) {
+        alert("Only administrators can execute server remediations.");
+        return;
+      }
+      
+      const confirmRun = confirm(`CONFIRM SERVER REMEDIATION:\n\nAre you sure you want to execute this command on the server?\n\nCommand: ${cmd}`);
+      if (!confirmRun) return;
+      
+      try {
+        const response = await fetch("{{ url_for('execute_remediation_command') }}", {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command: cmd })
+        });
+        
+        const data = await response.json();
+        if (data.error) {
+          alert(`Execution Failed:\n\n${data.error}`);
+          return;
+        }
+        
+        const statusMsg = data.success ? 'SUCCESS' : 'FAILED';
+        alert(`Remediation Completed [${statusMsg}]\n\nCommand: ${data.command}\nExit Code: ${data.exit_code}\n\nSTDOUT:\n${data.stdout || '(no output)'}\n\nSTDERR:\n${data.stderr || '(no output)'}`);
+        
+        if (data.success) {
+          if (activeView === 'dashboard') {
+            window.location.reload();
+          } else if (activeView === 'explorer') {
+            initializeExplorer();
+          }
+        }
+      } catch (err) {
+        alert(`Network Error: ${err.message}`);
+      }
+    }
+
+    // --- SRE INCIDENTS TAB LOGIC (RESTORED LOG SOURCE EXPLORER) ---
+
+    // Select and load a report into the workspace
+    async function selectReport(filename) {
+      document.querySelectorAll('.incident-card').forEach(card => {
+        if (card.dataset.filename === filename) {
+          card.classList.add('active');
+        } else {
+          card.classList.remove('active');
+        }
+      });
+
+      const workspace = document.getElementById('workspace-panel');
+      workspace.innerHTML = `
+        <div class="empty-workspace" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
+          <div class="spinner" style="border: 3px solid rgba(13, 148, 136, 0.1); border-top: 3px solid var(--accent); border-radius: 50%; width: 32px; height: 32px; animation: spin 1s linear infinite; margin-bottom: 12px;"></div>
+          <h2>Loading report details...</h2>
+        </div>`;
+
+      try {
+        const res = await fetch(`/admin/reports/${encodeURIComponent(filename)}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        activeReport = data;
+        renderWorkspace();
+      } catch (err) {
+        workspace.innerHTML = `
+          <div class="empty-workspace" style="text-align: center; padding: 40px;">
+            <h2 style="color: var(--danger); margin-bottom: 8px;">Failed to load report</h2>
+            <p style="color: var(--muted); font-size: 0.85rem;">${err.message}</p>
+          </div>`;
+      }
+    }
+
+    // Render the selected report into the main workspace area
+    function renderWorkspace() {
+      const workspace = document.getElementById('workspace-panel');
+      if (!activeReport) {
+        workspace.innerHTML = `
+          <div class="empty-workspace">
+            <div class="empty-state-visual">🔍</div>
+            <h2>Select an incident report</h2>
+            <p>Choose an entry from the Incident History sidebar to inspect diagnostics, view service logs, and interact with the AI SRE chatbot.</p>
+          </div>`;
+        return;
+      }
+
+      let html = `
+        <div class="workspace-header">
+          <div class="workspace-title-area">
+            <span class="report-badge">INCIDENT REPORT</span>
+            <h2>${activeReport.timestamp}</h2>
+            <p class="filename-lbl">${activeReport.filename}</p>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <button class="btn-ai-analyze" onclick="triggerAIPostMortem('${activeReport.filename}')" style="background: rgba(89, 217, 192, 0.12); border: 1px solid var(--accent); color: var(--accent); font-weight: bold; font-size: 0.72rem; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 4px;">📄 Generate Post-Mortem</button>
+            ${isAdmin ? `<span class="status-badge large-badge ${activeReport.remediation_status}">${activeReport.remediation_status || 'unknown'}</span>` : ''}
+          </div>
+        </div>
+      `;
+
+      if (isAdmin) {
+        html += `
+          <div class="report-grid">
+            <article class="grid-card">
+              <h3>Summary</h3>
+              <p>${activeReport.summary || 'No summary available.'}</p>
+            </article>
+            <article class="grid-card">
+              <h3>Root Cause</h3>
+              <p>${activeReport.root_cause || 'No root cause identified.'}</p>
+            </article>
+            <article class="grid-card">
+              <h3>Recommended Action</h3>
+              <p class="action-desc"><strong>${activeReport.recommended_action}</strong></p>
+              ${activeReport.action_target ? `<code class="target-code">${activeReport.action_target}</code>` : ''}
+            </article>
+            <article class="grid-card">
+              <h3>Remediation Status</h3>
+              <p class="remediation-msg"><strong>${activeReport.remediation_status || 'UNKNOWN'}</strong></p>
+              ${activeReport.remediation_message ? `<p class="remediation-detail">${activeReport.remediation_message}</p>` : ''}
+            </article>
+          </div>
+        `;
+
+        if ((activeReport.failed_services && activeReport.failed_services.length) ||
+            (activeReport.restarted_services && activeReport.restarted_services.length)) {
+          html += `<div class="diagnostics-chips">`;
+          activeReport.failed_services.forEach(s => {
+            html += `<span class="status-badge danger">Failed: ${s}</span>`;
+          });
+          activeReport.restarted_services.forEach(s => {
+            html += `<span class="status-badge warn">Restarted: ${s}</span>`;
+          });
+          html += `</div>`;
+        }
+      }
+
+      if (activeReport.supporting_evidence && activeReport.supporting_evidence.length) {
+        html += `
+          <div class="workspace-section">
+            <h3>Evidence Snapshot</h3>
+            <ul class="evidence-list">
+              ${activeReport.supporting_evidence.map(item => `<li>${item}</li>`).join('')}
+            </ul>
+          </div>
+        `;
+      }
+
+      // Dynamic Service Log Browser
+      html += `
+        <div class="log-browser-panel">
+          <div class="log-browser-header">
+            <div>
+              <h3>Service Log Explorer</h3>
+              <p class="section-desc">View error streams, journal traces, and live container outputs.</p>
+            </div>
+            <div class="log-source-selector">
+              <label for="log-source-select">Log Source:</label>
+              <select id="log-source-select" onchange="selectLogSource(this.value)">
+                <option value="">-- Select log source --</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="log-viewer">
+            <pre><code id="log-output">Select a service log source from the dropdown to start analysis.</code></pre>
+          </div>
+        </div>
+
+        <!-- Centralized Incident Chat Bot (Always Visible for the Selected Report) -->
+        <div class="chatbot-container" id="log-chatbot">
+          <div class="chatbot-header">
+            <div class="bot-meta">
+              <span class="bot-status-pulse"></span>
+              <div>
+                <h4>AI SRE Incident Assistant</h4>
+                <p class="bot-context">Focus: <strong id="chat-focus-source">Entire Incident Report</strong></p>
+              </div>
+            </div>
+            <button class="btn-clear" onclick="clearChatSession()">Clear Chat</button>
+          </div>
+          <div class="chat-history" id="chat-history-list"></div>
+          <div class="chat-input-row">
+            <input type="text" id="chat-user-msg" placeholder="Ask about the incident (e.g. 'What is the issue?', 'Suggest a fix', 'Summarize')" onkeydown="handleChatKey(event)">
+            <button type="button" class="btn-send" onclick="sendChatQuery()">Send</button>
+          </div>
+        </div>
+      `;
+
+      // Collapsible Host Service Inventory (Latest Status)
+      if (servicesInventory && servicesInventory.length) {
+        html += `
+          <details class="inventory-details">
+            <summary>🌐 Host Service Inventory (System Status)</summary>
+            <div class="inventory-table-wrapper">
+              <table class="inventory-table">
+                <thead>
+                  <tr>
+                    <th>Service Name</th>
+                    <th>Status</th>
+                    <th>SubState</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${servicesInventory.map(s => `
+                    <tr>
+                      <td><strong>${s.name}</strong></td>
+                      <td><span class="status-badge ${s.status === 'running' || s.status === 'active' ? 'success' : 'danger'}">${s.status}</span></td>
+                      <td><code>${s.substate || 'n/a'}</code></td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        `;
+      }
+
+      workspace.innerHTML = html;
+
+      // Populate Log Selector options
+      const selector = document.getElementById('log-source-select');
+      let defaultSource = '';
+
+      if (activeReport.fresh_logs && activeReport.fresh_logs.length) {
+        activeReport.fresh_logs.forEach(log => {
+          const opt = document.createElement('option');
+          opt.value = log.source;
+          opt.textContent = `${log.source} (${log.lines.length} lines)`;
+          selector.appendChild(opt);
+        });
+        defaultSource = activeReport.fresh_logs[0].source;
+      }
+
+      if (defaultSource) {
+        selector.value = defaultSource;
+        selectLogSource(defaultSource);
+      } else {
+        selectLogSource('');
+      }
+
+      // Always render chat history for this report (not service-locked)
+      renderChatHistory();
+    }
+
+    // Load the selected log text dynamically via SSE live stream (with fallback to static logs)
+    function selectLogSource(source) {
+      activeService = source;
+      const viewer = document.getElementById('log-output');
+
+      // Close any active log stream
+      if (logEventSource) {
+        logEventSource.close();
+        logEventSource = null;
+      }
+
+      if (!source) {
+        viewer.textContent = 'No logs collected during this monitoring cycle.';
+        return;
+      }
+
+      viewer.textContent = 'Connecting to live container stream...';
+
+      // Connect to Flask SSE streaming route
+      const streamUrl = `{{ url_for('stream_logs') }}?source=${encodeURIComponent(source)}`;
+      logEventSource = new EventSource(streamUrl);
+
+      logEventSource.onmessage = function(event) {
+        if (viewer.textContent === 'Connecting to live container stream...' || viewer.textContent.startsWith('No logs') || viewer.textContent.startsWith('Error:')) {
+          viewer.textContent = event.data + '\n';
+        } else {
+          viewer.textContent += event.data + '\n';
+        }
+        
+        // Auto scroll to bottom
+        const container = viewer.parentElement;
+        container.scrollTop = container.scrollHeight;
+      };
+
+      logEventSource.onerror = function() {
+        if (logEventSource) {
+          logEventSource.close();
+          logEventSource = null;
+        }
+
+        let logText = '';
+        if (activeReport.fresh_logs) {
+          const match = activeReport.fresh_logs.find(l => l.source === source);
+          if (match) logText = match.lines.join('\n');
+        }
+        
+        if (viewer.textContent === 'Connecting to live container stream...' || viewer.textContent.startsWith('Error:')) {
+          viewer.textContent = (logText || `No telemetry content recorded for source: "${source}"`) + '\n\n[Live stream offline - showing static snapshot]';
+        } else {
+          viewer.textContent += '\n\n[Live stream disconnected - showing static snapshot]';
+        }
+      };
+    }
+
+    // Get current chat session key (report-level chatbot)
+    function getSessionKey() {
+      return activeReport.filename;
+    }
+
+    // Render chatbot logs for active session key
+    function renderChatHistory() {
+      const chatList = document.getElementById('chat-history-list');
+      if (!chatList) return;
+
+      chatList.innerHTML = '';
+      const key = getSessionKey();
+      const history = chatSessions[key] || [];
+
+      if (!history.length) {
+        chatList.innerHTML = `
+          <div class="empty-chat-welcome">
+            <span class="welcome-icon">🤖</span>
+            <p>I have scanned this incident report and its logs. Ask me anything about the **remediation status**, **root cause**, **warnings**, or **errors**.</p>
+          </div>
+        `;
+        return;
+      }
+
+      history.forEach(msg => {
+        const bubble = document.createElement('div');
+        bubble.className = `chat-bubble ${msg.sender}`;
+
+        const avatar = document.createElement('span');
+        avatar.className = 'chat-bubble-avatar';
+        avatar.textContent = msg.sender === 'user' ? '👤' : '🤖';
+
+        const textDiv = document.createElement('div');
+        textDiv.className = 'chat-bubble-text';
+        textDiv.innerHTML = msg.text.replace(/\n/g, '<br>');
+
+        // Auto detect and append remediation execution buttons for admins
+        if (msg.sender === 'assistant' && isAdmin) {
+          const commands = detectRemediationCommands(msg.text);
+          if (commands.length) {
+            const btnContainer = document.createElement('div');
+            btnContainer.className = 'chat-remediation-row';
+            btnContainer.style = 'display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;';
+            
+            commands.forEach(cmd => {
+              const btn = document.createElement('button');
+              btn.className = 'btn-execute-remediation';
+              btn.style = 'background: rgba(89, 217, 192, 0.12); border: 1px solid var(--accent); color: var(--accent); padding: 4px 10px; border-radius: 4px; font-size: 0.72rem; cursor: pointer; display: flex; align-items: center; gap: 4px; font-family: monospace; transition: all 0.2s;';
+              btn.innerHTML = `⚡ Run: <code>${cmd}</code>`;
+              btn.onclick = () => triggerCommandExecution(cmd);
+              btnContainer.appendChild(btn);
+            });
+            textDiv.appendChild(btnContainer);
+          }
+        }
+
+        bubble.appendChild(avatar);
+        bubble.appendChild(textDiv);
+        chatList.appendChild(bubble);
+      });
+
+      chatList.scrollTop = chatList.scrollHeight;
+    }
+
+    // Trigger chatbot request
+    async function sendChatQuery() {
+      const input = document.getElementById('chat-user-msg');
+      if (!input) return;
+      const question = input.value.trim();
+      if (!question) return;
+
+      input.value = '';
+      const key = getSessionKey();
+
+      if (!chatSessions[key]) chatSessions[key] = [];
+      chatSessions[key].push({ sender: 'user', text: question });
+      renderChatHistory();
+
+      // Append typing indicator
+      const chatList = document.getElementById('chat-history-list');
+      const typing = document.createElement('div');
+      typing.className = 'chat-bubble assistant typing-bubble';
+      typing.id = 'typing-indicator';
+      typing.innerHTML = `
+        <span class="chat-bubble-avatar">🤖</span>
+        <div class="chat-bubble-text">
+          <div class="typing-indicator-dots">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+      `;
+      chatList.appendChild(typing);
+      chatList.scrollTop = chatList.scrollHeight;
+
+      // Build conversation contextual prompt (injecting incident summary, root cause, action, remediation details)
+      let contextualPrompt = 'Incident Context:\n';
+      contextualPrompt += `- Summary: ${activeReport.summary || 'None'}\n`;
+      contextualPrompt += `- Root Cause: ${activeReport.root_cause || 'None'}\n`;
+      contextualPrompt += `- Recommended Action: ${activeReport.recommended_action || 'None'} (target: ${activeReport.action_target || 'None'})\n`;
+      contextualPrompt += `- Remediation: ${activeReport.remediation_status || 'None'} (${activeReport.remediation_message || 'None'})\n\n`;
+
+      const history = chatSessions[key];
+      const sliceStart = Math.max(0, history.length - 8); // Send up to last 8 messages for context
+      for (let i = sliceStart; i < history.length; i++) {
+        contextualPrompt += `${history[i].sender === 'user' ? 'User' : 'Assistant'}: ${history[i].text}\n`;
+      }
+
+      try {
+        const response = await fetch("{{ url_for('admin_ai_chat') }}", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            filename: activeReport.filename,
+            question: contextualPrompt
+          })
+        });
+
+        const typingEl = document.getElementById('typing-indicator');
+        if (typingEl) typingEl.remove();
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.error || 'Diagnostic query failed.');
+        }
+
+        const data = await response.json();
+        chatSessions[key].push({ sender: 'assistant', text: data.answer || 'No response.' });
+      } catch (err) {
+        const typingEl = document.getElementById('typing-indicator');
+        if (typingEl) typingEl.remove();
+        chatSessions[key].push({ sender: 'assistant system-error', text: `Diagnostic assistant error: ${err.message}` });
+      }
+
+      renderChatHistory();
+    }
+
+    function handleChatKey(e) {
+      if (e.key === 'Enter') {
+        sendChatQuery();
+      }
+    }
+
+    function clearChatSession() {
+      const key = getSessionKey();
+      chatSessions[key] = [];
+      renderChatHistory();
+    }
+
+    // --- THEME SELECTOR ACTIONS ---
+    function initThemeMode() {
+      const savedTheme = localStorage.getItem('theme-mode') || 'dark';
+      if (savedTheme === 'light') {
+        document.body.classList.add('light-theme');
+        const btn = document.getElementById('btn-theme-toggle');
+        if (btn) {
+          btn.textContent = '🌙 Dark';
+          btn.style.color = '#edf5ff';
+          btn.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+        }
+      }
+    }
+
+    function toggleThemeMode() {
+      const body = document.body;
+      const btn = document.getElementById('btn-theme-toggle');
+      if (body.classList.contains('light-theme')) {
+        body.classList.remove('light-theme');
+        localStorage.setItem('theme-mode', 'dark');
+        if (btn) {
+          btn.textContent = '☀️ Light';
+          btn.style.color = '#edf5ff';
+          btn.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+        }
+      } else {
+        body.classList.add('light-theme');
+        localStorage.setItem('theme-mode', 'light');
+        if (btn) {
+          btn.textContent = '🌙 Dark';
+          btn.style.color = '#edf5ff';
+          btn.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+        }
+      }
+    }
+
+    // Initialize Active Report on Load
+    if (reports && reports.length > 0) {
+      selectReport(reports[0].filename);
+    }
+
+    // Restore active tab view from location hash or query parameter
+    (() => {
+      initThemeMode();
+      const urlParams = new URLSearchParams(window.location.search);
+      const hash = window.location.hash.replace('#', '');
+      const activeTab = hash || urlParams.get('view') || 'dashboard';
+      switchView(activeTab, true);
+
+      // Listen for browser back/forward buttons hash changes
+      window.addEventListener('hashchange', () => {
+        const currentHash = window.location.hash.replace('#', '');
+        if (['dashboard', 'incidents', 'explorer', 'users', 'finops'].includes(currentHash)) {
+          switchView(currentHash, false);
+        }
+      });
+
+      // Parse viewer creation/update error if present
+      const errorParam = urlParams.get('error');
+      if (errorParam) {
+        const alertBox = document.getElementById('users-alert-box');
+        if (alertBox) {
+          alertBox.textContent = decodeURIComponent(errorParam);
+          alertBox.style.display = 'block';
+        }
+      }
+    })();
+
+    // Polling System for healthcheck updates
+    (() => {
+      const nextCheck = document.getElementById("next-check");
+      const lastCheck = document.getElementById("last-check");
+      let nextCheckAt = null;
+      let serverOffset = 0;
+      let enabled = true;
+
+      function formatTimestamp(timestamp) {
+        return new Date(timestamp * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      }
+
+      function renderCountdown() {
+        if (!enabled) {
+          nextCheck.textContent = "Cloud alerts only";
+          lastCheck.textContent = "Local monitoring is disabled";
+          return;
+        }
+        if (!nextCheckAt) {
+          nextCheck.textContent = "Checking now";
+          return;
+        }
+        const seconds = Math.max(0, Math.ceil(nextCheckAt - (Date.now() / 1000 + serverOffset)));
+        nextCheck.textContent = seconds === 0 ? "Checking now" : `${seconds}s`;
+      }
+
+      async function refreshMonitorStatus() {
+        try {
+          const response = await fetch("{{ url_for('admin_monitor_status') }}", { cache: "no-store" });
+          if (!response.ok) throw new Error("Unable to load monitor status");
+          const status = await response.json();
+          enabled = status.enabled;
+          nextCheckAt = status.next_check_at;
+          serverOffset = status.server_time - Date.now() / 1000;
+          lastCheck.textContent = status.last_check_at
+            ? `Last check started at ${formatTimestamp(status.last_check_at)}`
+            : "First health check is starting";
+          renderCountdown();
+        } catch (_) {
+          nextCheck.textContent = "Status unavailable";
+          lastCheck.textContent = "Refresh the page to retry";
+        }
+      }
+
+      refreshMonitorStatus();
+      window.setInterval(renderCountdown, 1000);
+      window.setInterval(refreshMonitorStatus, 15000);
+    })();
+
+    // --- REMEDIATION AUDIT LOG & USER CRUD ACCESS ---
+    async function deleteViewerUser(username) {
+      if (!confirm(`Are you sure you want to permanently delete the viewer account "${username}"?`)) {
+        return;
+      }
+      
+      try {
+        const response = await fetch("{{ url_for('delete_viewer_user') }}", {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: username })
+        });
+        
+        const data = await response.json();
+        if (data.error) {
+          alert(`Failed to delete user: ${data.error}`);
+          return;
+        }
+        
+        alert(data.message || 'User deleted successfully.');
+        window.location.reload();
+      } catch (err) {
+        alert(`Network Error: ${err.message}`);
+      }
+    }
+
+    async function loadRemediationAudits() {
+      const rowsContainer = document.getElementById('remediation-audit-rows');
+      if (!rowsContainer) return;
+      
+      try {
+        const response = await fetch("{{ url_for('get_remediation_audits') }}");
+        const data = await response.json();
+        
+        if (data.error) {
+          rowsContainer.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--danger); padding: 20px;">Error: ${data.error}</td></tr>`;
+          return;
+        }
+        
+        const audits = data.audits || [];
+        if (!audits.length) {
+          rowsContainer.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--muted); font-style: italic; padding: 20px;">No remediation audits logged yet.</td></tr>`;
+          return;
+        }
+        
+        rowsContainer.innerHTML = audits.map(a => {
+          const statusBadge = a.success 
+            ? `<span class="status-badge success" style="font-size: 0.65rem; padding: 2px 6px;">SUCCESS</span>`
+            : `<span class="status-badge danger" style="font-size: 0.65rem; padding: 2px 6px;">FAILED (Code ${a.exit_code})</span>`;
+            
+          const detailsEscaped = (a.stderr || a.stdout || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/\n/g, '\\n');
+          
+          return `
+            <tr style="border-bottom: 1px solid var(--line); font-size: 0.8rem; color: var(--text);">
+              <td style="padding: 10px; font-family: monospace; white-space: nowrap;">${a.created_at.replace('T', ' ').substring(0, 19)}</td>
+              <td style="padding: 10px; font-weight: bold; color: var(--accent);">${a.operator}</td>
+              <td style="padding: 10px; font-family: monospace; color: #c9d9eb;"><code>${a.command}</code></td>
+              <td style="padding: 10px;">${statusBadge}</td>
+              <td style="padding: 10px;">
+                <button type="button" class="btn-clear" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px;" onclick="showAuditDetail('${a.command}', '${a.success ? 'SUCCESS' : 'FAILED'}', \`${detailsEscaped}\`)">View Output</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        rowsContainer.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--danger); padding: 20px;">Network Error: ${err.message}</td></tr>`;
+      }
+    }
+    
+    function showAuditDetail(cmd, status, output) {
+      alert(`AUDIT DETAIL [${status}]\n\nCommand: ${cmd}\n\nOUTPUT:\n${output.replace(/\\n/g, '\n') || '(no output)'}`);
+    }
+
+    // --- FINOPS BILLING FORMAT ACTIONS ---
+    function toggleBillingFormat() {
+      billingShowPercentage = !billingShowPercentage;
+      const btn = document.getElementById('btn-billing-toggle');
+      if (btn) {
+        btn.textContent = billingShowPercentage ? 'Absolute ($)' : '$ / %';
+      }
+      renderBillingServices();
+    }
+
+    function renderBillingServices() {
+      if (!billingServicesData.length) return;
+      const totalSpend = billingServicesData.reduce((acc, curr) => acc + curr.cost, 0);
+      const maxCost = billingServicesData[0].cost;
+      
+      document.getElementById('finops-services-list').innerHTML = billingServicesData.map(s => {
+        const barPct = Math.max(8, (s.cost / maxCost) * 100);
+        const displayVal = billingShowPercentage 
+          ? `${((s.cost / totalSpend) * 100).toFixed(1)}%` 
+          : `$${s.cost.toFixed(2)}`;
+          
+        return `
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.76rem; color: var(--text); margin-bottom: 4px;">
+              <span style="font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 250px;">${s.name}</span>
+              <span style="font-family: monospace;">${displayVal}</span>
+            </div>
+            <div style="background: rgba(255, 255, 255, 0.05); height: 8px; border-radius: 4px; overflow: hidden;">
+              <div style="background: linear-gradient(90deg, var(--accent), #59d9c0); width: ${barPct}%; height: 100%; border-radius: 4px; transition: width 0.6s ease-out;"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // --- FINOPS COST OPTIMIZATION LOOP ---
+    async function loadFinOpsData() {
+      // 1. Reset UI loaders
+      document.getElementById('finops-services-list').innerHTML = '<p class="loading-msg">Fetching AWS Cost Explorer summary...</p>';
+      document.getElementById('finops-history-list').innerHTML = '<p class="loading-msg">Fetching historical billing data...</p>';
+      document.getElementById('finops-utilization-rows').innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--muted); font-style: italic; padding: 20px;">Fetching container metrics...</td></tr>';
+      document.getElementById('finops-ai-comparison').innerHTML = '<p class="loading-msg" style="text-align: center; color: var(--muted);">Gemini SRE comparing billing history & generating insights...</p>';
+      
+      // 2. Fetch billing costs
+      let billing = null;
+      try {
+        const billingRes = await fetch("{{ url_for('finops_billing') }}");
+        billing = await billingRes.json();
+        
+        if (billing.error) throw new Error(billing.error);
+        
+        document.getElementById('finops-monthly-cost').textContent = `$${billing.total_monthly.toFixed(2)}`;
+        document.getElementById('finops-cost-trend').textContent = `+${billing.trend_percentage}% MoM growth`;
+        
+        const badge = document.getElementById('finops-billing-mode-badge');
+        if (billing.is_mock) {
+          badge.textContent = 'DEMO SNAPSHOT';
+          badge.className = 'status-badge warn';
+        } else {
+          badge.textContent = 'LIVE ACCOUNT';
+          badge.className = 'status-badge success';
+        }
+        
+        // Populate top service generator card
+        const topService = billing.services.length ? billing.services[0] : null;
+        if (topService) {
+          document.getElementById('finops-savings-cost').textContent = topService.name.replace("Amazon ", "").replace("Elastic ", "");
+          document.getElementById('finops-savings-label').textContent = 'Primary Cost Service';
+          document.getElementById('finops-savings-sub').textContent = `Largest spend: $${topService.cost.toFixed(2)}`;
+        }
+        
+        // Populate services list
+        billingServicesData = billing.services || [];
+        renderBillingServices();
+
+        // Populate billing history list
+        const history = billing.history || [];
+        const maxHistoryCost = history.length ? Math.max(...history.map(h => h.cost)) : 100;
+        document.getElementById('finops-history-list').innerHTML = history.map(h => {
+          const pct = Math.max(8, (h.cost / maxHistoryCost) * 100);
+          return `
+            <div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.76rem; color: var(--text); margin-bottom: 4px;">
+                <span style="font-weight: bold;">${h.month}</span>
+                <span style="font-family: monospace;">$${h.cost.toFixed(2)}</span>
+              </div>
+              <div style="background: rgba(255, 255, 255, 0.05); height: 8px; border-radius: 4px; overflow: hidden;">
+                <div style="background: linear-gradient(90deg, #3a86ff, var(--accent)); width: ${pct}%; height: 100%; border-radius: 4px; transition: width 0.6s ease-out;"></div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        document.getElementById('finops-services-list').innerHTML = `<p style="color: var(--danger); font-size: 0.8rem; text-align: center;">Billing Error: ${err.message}</p>`;
+        document.getElementById('finops-history-list').innerHTML = `<p style="color: var(--danger); font-size: 0.8rem; text-align: center;">History Error: ${err.message}</p>`;
+      }
+      
+      // 3. Fetch utilization waste
+      const ctx = k8sActiveContext || 'default';
+      const ns = k8sActiveNamespace || 'default';
+      let utilizationItems = [];
+      try {
+        const utilRes = await fetch(`{{ url_for('finops_utilization') }}?context=${encodeURIComponent(ctx)}&namespace=${encodeURIComponent(ns)}`);
+        const utilData = await utilRes.json();
+        
+        if (utilData.error) throw new Error(utilData.error);
+        utilizationItems = utilData.utilization || [];
+        
+        if (!utilizationItems.length) {
+          document.getElementById('finops-utilization-rows').innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--muted); padding: 20px;">No container usage metrics collected.</td></tr>';
+        } else {
+          document.getElementById('finops-utilization-rows').innerHTML = utilizationItems.map(item => {
+            const scoreColor = item.waste_score > 80 ? 'var(--danger)' : 'var(--accent)';
+            return `
+              <tr style="border-bottom: 1px solid var(--line); font-size: 0.78rem; color: var(--text);">
+                <td style="padding: 10px;">
+                  <strong style="display: block;">${item.name}</strong>
+                  <span style="font-size: 0.65rem; color: var(--muted);">${item.type}</span>
+                </td>
+                <td style="padding: 10px;">${item.cpu_actual}</td>
+                <td style="padding: 10px; font-family: monospace; color: var(--muted);">${item.cpu_allocated}</td>
+                <td style="padding: 10px; font-weight: bold; color: ${scoreColor};">${item.waste_score.toFixed(1)}%</td>
+              </tr>
+            `;
+          }).join('');
+        }
+        
+        // Calculate average waste score for the middle card
+        let totalScore = 0;
+        utilizationItems.forEach(item => totalScore += item.waste_score);
+        const avgWaste = utilizationItems.length ? (totalScore / utilizationItems.length).toFixed(1) : '0.0';
+        document.getElementById('finops-waste-cost').textContent = `${avgWaste}%`;
+        document.getElementById('finops-waste-label').textContent = 'Average Capacity Waste';
+        document.getElementById('finops-waste-sub').textContent = 'Overallocated requests vs actual usage';
+      } catch (err) {
+        document.getElementById('finops-utilization-rows').innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--danger); padding: 20px;">Metrics Error: ${err.message}</td></tr>`;
+      }
+
+      // 4. Fetch AI Comparison
+      try {
+        const compareRes = await fetch("{{ url_for('finops_compare') }}");
+        const compareData = await compareRes.json();
+        
+        const rawText = compareData.comparison || 'No analysis insights generated.';
+        const htmlText = rawText
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .split('\n')
+          .map(line => {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('-') || trimmed.startsWith('*')) {
+              return `<div style="margin-bottom: 8px; display: flex; align-items: flex-start; gap: 8px;">
+                <span style="color: var(--accent);">✦</span>
+                <span>${trimmed.substring(1).trim()}</span>
+              </div>`;
+            }
+            return trimmed ? `<p style="margin-bottom: 8px;">${trimmed}</p>` : '';
+          }).join('');
+          
+        document.getElementById('finops-ai-comparison').innerHTML = htmlText;
+      } catch (err) {
+        document.getElementById('finops-ai-comparison').innerHTML = `<p style="color: var(--danger); font-size: 0.8rem;">AI Analysis Error: ${err.message}</p>`;
+      }
+    }
+
+
+
+    // --- AI ANOMALY SCAN FOR EXPLORER LOGS ---
+    async function triggerAIAnomalyScan() {
+      if (!explorerActiveResource) return;
+      const consoleOutput = document.getElementById('explorer-console-output').textContent;
+      if (!consoleOutput || consoleOutput.startsWith('Select a container') || consoleOutput.startsWith('Connecting to')) {
+        alert("No active log stream to scan. Select a resource first.");
+        return;
+      }
+
+      const container = document.getElementById('explorer-ai-anomaly-container');
+      container.style.display = 'block';
+      container.innerHTML = `
+        <article class="management-card" style="background: rgba(13, 148, 136, 0.05); border: 1px solid var(--accent); padding: 16px; border-radius: 8px;">
+          <p class="eyebrow" style="color: var(--accent);">🔍 AI SRE ANOMALY SCANNER</p>
+          <p style="font-size: 0.8rem; font-style: italic; color: var(--muted); margin: 6px 0 0 0;">Gemini SRE conducting security & stability anomaly scan on log stream...</p>
+        </article>
+      `;
+
+      try {
+        const logsArray = consoleOutput.split('\n');
+        const res = await fetch("/admin/ai/log-anomaly-scan", {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ logs: logsArray })
+        });
+        const data = await res.json();
+        
+        if (data.error) throw new Error(data.error);
+
+        const rawText = data.report || 'No anomalies identified.';
+        const htmlText = rawText
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .split('\n')
+          .map(line => {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('-') || trimmed.startsWith('*')) {
+              return `<div style="margin-left: 12px; margin-bottom: 6px; display: flex; align-items: flex-start; gap: 8px;">
+                <span style="color: var(--accent);">✦</span>
+                <span>${trimmed.substring(1).trim()}</span>
+              </div>`;
+            }
+            return trimmed ? `<p style="margin-bottom: 8px;">${trimmed}</p>` : '';
+          }).join('');
+
+        container.innerHTML = `
+          <article class="management-card" style="background: rgba(13, 148, 136, 0.04); border: 1px solid var(--accent); padding: 20px; border-radius: 12px; position: relative;">
+            <p class="eyebrow" style="color: var(--accent);">🔍 PROACTIVE ANOMALY DISCOVERY</p>
+            <button onclick="document.getElementById('explorer-ai-anomaly-container').style.display='none'" style="position: absolute; top: 12px; right: 12px; background: transparent; border: none; color: var(--muted); cursor: pointer; font-size: 1rem;">&times;</button>
+            <div style="font-size: 0.82rem; color: var(--text); line-height: 1.5; margin-top: 10px;">
+              ${htmlText}
+            </div>
+          </article>
+        `;
+      } catch (err) {
+        container.innerHTML = `
+          <article class="management-card" style="background: rgba(225, 29, 72, 0.05); border: 1px solid var(--danger); padding: 16px; border-radius: 8px;">
+            <p class="eyebrow" style="color: var(--danger);">❌ ANOMALY SCAN FAILED</p>
+            <p style="font-size: 0.8rem; color: var(--danger); margin: 6px 0 0 0;">${err.message}</p>
+          </article>
+        `;
+      }
+    }
+
+    // --- AI POST-MORTEM GENERATOR FOR INCIDENTS ---
+    let currentPostMortemText = "";
+    let currentPostMortemFilename = "";
+
+    async function triggerAIPostMortem(filename) {
+      currentPostMortemFilename = filename;
+      const modal = document.getElementById('post-mortem-modal');
+      const content = document.getElementById('post-mortem-content');
+      
+      modal.style.display = 'flex';
+      content.innerHTML = `
+        <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; gap: 12px;">
+          <p style="font-size: 1rem; color: var(--text); font-weight: bold;">Generating Post-Mortem & Root Cause Analysis...</p>
+          <p style="font-size: 0.8rem; color: var(--muted); font-style: italic;">Gemini compiling telemetry timeline, logs, and remediation audit traces...</p>
+        </div>
+      `;
+
+      try {
+        const res = await fetch("/admin/ai/post-mortem", {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: filename })
+        });
+        const data = await res.json();
+        
+        if (data.error) throw new Error(data.error);
+
+        currentPostMortemText = data.post_mortem || "";
+        
+        const htmlText = currentPostMortemText
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/### (.*?)\n/g, '<h4 style="margin: 16px 0 8px 0; color: var(--accent);">$1</h4>')
+          .replace(/## (.*?)\n/g, '<h3 style="margin: 20px 0 10px 0; border-bottom: 1px solid var(--line); padding-bottom: 6px; color: var(--text);">$1</h3>')
+          .split('\n')
+          .map(line => {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('-') || trimmed.startsWith('*')) {
+              return `<div style="margin-left: 12px; margin-bottom: 6px; display: flex; align-items: flex-start; gap: 8px;">
+                <span style="color: var(--accent);">✦</span>
+                <span>${trimmed.substring(1).trim()}</span>
+              </div>`;
+            }
+            return trimmed ? `<p style="margin-bottom: 8px;">${trimmed}</p>` : '';
+          }).join('');
+
+        content.innerHTML = `
+          <div style="font-family: system-ui, -apple-system, sans-serif;">
+            ${htmlText}
+          </div>
+        `;
+      } catch (err) {
+        content.innerHTML = `
+          <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; color: var(--danger);">
+            <h4>Post-Mortem Generation Failed</h4>
+            <p>${err.message}</p>
+          </div>
+        `;
+      }
+    }
+
+    function closePostMortemModal() {
+      document.getElementById('post-mortem-modal').style.display = 'none';
+    }
+
+    function downloadPostMortemMarkdown() {
+      if (!currentPostMortemText) return;
+      const blob = new Blob([currentPostMortemText], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `post_mortem_${currentPostMortemFilename.replace('.json', '')}.md`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+
+  </script>
+</body>
+</html>

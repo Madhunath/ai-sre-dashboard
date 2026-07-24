@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in | AI SRE Command Center</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
+</head>
+<body class="login-page">
+  <main class="login-shell">
+    <section class="login-intro">
+      <div class="brand-mark" aria-hidden="true">✦</div>
+      <p class="eyebrow">AI SRE · COMMAND CENTER</p>
+      <h1>Keep your infrastructure in view.</h1>
+      <p class="login-copy">Review incident analysis, service evidence, and fresh system logs from one focused dashboard.</p>
+      <div class="intro-pulse"><span></span> Monitoring intelligence is ready</div>
+    </section>
+
+    <section class="login-panel">
+      {% if not requested_role %}
+        <p class="eyebrow">CHOOSE SIGN-IN TYPE</p>
+        <h2>How are you signing in?</h2>
+        <p class="form-hint">Administrators manage viewer access. Viewers can access only their assigned logs.</p>
+        <div class="login-choices">
+          <a href="{{ url_for('admin_login', role='admin') }}"><strong>Administrator</strong><span>Manage monitoring, users, and access</span></a>
+          <a href="{{ url_for('admin_login', role='viewer') }}"><strong>Viewer</strong><span>View assigned logs and ask AI for help</span></a>
+        </div>
+      {% else %}
+      <p class="eyebrow">SECURE ACCESS</p>
+      <h2>{{ 'Administrator' if requested_role == 'admin' else 'Viewer' }} sign in</h2>
+      <p class="form-hint">Sign in to open your authorized workspace.</p>
+      {% if error %}
+        <div class="alert" role="alert">{{ error }}</div>
+      {% endif %}
+      <form method="post" class="login-form">
+        <input type="hidden" name="role" value="{{ requested_role }}">
+        <label>
+          <span>Username</span>
+          <input name="username" autocomplete="username" placeholder="Enter your username" required autofocus>
+        </label>
+        <label>
+          <span>Password</span>
+          <input name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required>
+        </label>
+        <button type="submit">Open command center <span aria-hidden="true">→</span></button>
+      </form>
+      <p class="form-hint"><a class="nav-link" href="{{ url_for('admin_login') }}">Choose a different sign-in type</a></p>
+      {% endif %}
+    </section>
+  </main>
+</body>
+</html>

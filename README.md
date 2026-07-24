@@ -146,11 +146,11 @@ The database script initializes the following SQL schema:
 ```sql
 CREATE TABLE IF NOT EXISTS admin_users (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(80) UNIQUE NOT NULL,
+    username VARCHAR(80) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(20) NOT NULL DEFAULT 'viewer',
-    allowed_log_sources TEXT, -- Comma-separated list of patterns (e.g. docker:*, nginx)
-    is_active BOOLEAN DEFAULT TRUE,
+    role VARCHAR(20) NOT NULL DEFAULT 'admin',
+    allowed_log_sources TEXT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
@@ -200,3 +200,4 @@ The chatbot only permits executing specific system commands. The backend regex w
 * **Docker:** `docker start/stop/restart/rm`, `docker rmi`, `docker volume rm`
 * **Kubernetes:** `kubectl scale deployment`, `kubectl rollout restart`
 * **Services:** `systemctl start/stop/restart`
+
